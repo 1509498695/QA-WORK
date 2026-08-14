@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"candidate_cases","type":"object","required":["schema_version","run_id","input_sha256","rule_release_version","cases","base_dispositions"]}

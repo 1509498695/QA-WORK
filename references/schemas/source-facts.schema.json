@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "source_facts",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "package_sha256",
+    "requirement_name",
+    "project_code",
+    "read_status",
+    "facts",
+    "conflicts",
+    "pending_items",
+    "count_policy"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "package_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "requirement_name": {"type": "string", "minLength": 1},
+    "project_code": {"enum": ["rok", "cod", "beagle", "dobe", "generic", "pending"]},
+    "read_status": {"enum": ["complete", "partial"]},
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["fact_id", "topic", "statement", "status", "source_refs"],
+        "properties": {
+          "status": {"enum": ["confirmed", "pending"]},
+          "source_refs": {"type": "array", "minItems": 1}
+        }
+      }
+    },
+    "conflicts": {"type": "array"},
+    "pending_items": {"type": "array"},
+    "count_policy": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": {"enum": ["natural", "user_fixed", "sample", "condensed"]},
+        "request_ref": {"type": "string"},
+        "requested_count": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

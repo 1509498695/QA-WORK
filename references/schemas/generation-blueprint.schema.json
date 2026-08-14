@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "generation_blueprint",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "input_sha256",
+    "rule_release_version",
+    "nodes",
+    "pending_items"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "blueprint_node_id",
+          "title",
+          "business_goal",
+          "entry_conditions",
+          "main_flow",
+          "observable_results",
+          "source_refs",
+          "status"
+        ],
+        "properties": {
+          "status": {"enum": ["confirmed", "pending"]}
+        }
+      }
+    },
+    "pending_items": {"type": "array"}
+  }
+}

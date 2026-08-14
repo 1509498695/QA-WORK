@@ -1,0 +1,12 @@
+[
+  {"id":"system-min","title":"系统最小夹具","category":"system","module":"SAMO::邮件"},
+  {"id":"commercialization-min","title":"商业化最小夹具","category":"commercialization","module":"SAMO::商城与礼包"},
+  {"id":"growth-min","title":"养成最小夹具","category":"growth","module":"SAMO::英雄养成与升星"},
+  {"id":"skill-min","title":"技能最小夹具","category":"skill","module":"SAMO::技能"},
+  {"id":"instance-min","title":"副本最小夹具","category":"instance","module":"SAMO::副本"},
+  {"id":"gameplay-min","title":"玩法最小夹具","category":"gameplay","module":"SAMO::迷你游戏"},
+  {"id":"activity-min","title":"活动最小夹具","category":"activity","module":"SAMO::活动中心"},
+  {"id":"season-min","title":"赛季最小夹具","category":"season","module":"SAMO::赛季"},
+  {"id":"anniversary-bet-chest","title":"周年庆押注宝箱","category":"activity","module":"SAMO::周年庆活动"},
+  {"id":"hero-resonance-reset","title":"英雄共鸣与重置","category":"growth","module":"SAMO::英雄共鸣"}
+]

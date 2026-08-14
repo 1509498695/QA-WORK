@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "local_delivery_readiness",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "status",
+    "delivery_mode",
+    "requirement_name",
+    "output_filename",
+    "pending_count",
+    "blocking_errors",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "status": {"enum": ["ok", "invalid"]},
+    "delivery_mode": {"enum": ["formal", "draft", "blocked"]},
+    "output_filename": {"type": "string", "pattern": "\\.xlsx$"},
+    "pending_count": {"type": "integer", "minimum": 0},
+    "blocking_errors": {"type": "array"},
+    "warnings": {"type": "array"}
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "projects": [
+    {
+      "project_code": "rok",
+      "display_name": "ROK / 万国觉醒",
+      "aliases": ["ROK", "万国觉醒"],
+      "reference": "project-rok.md"
+    },
+    {
+      "project_code": "cod",
+      "display_name": "CoD / SAMO / 万龙觉醒",
+      "aliases": ["CoD", "COD", "SAMO", "万龙觉醒"],
+      "reference": "project-cod.md"
+    },
+    {
+      "project_code": "beagle",
+      "display_name": "Beagle / 比格",
+      "aliases": ["Beagle", "比格"],
+      "reference": "project-beagle.md"
+    },
+    {
+      "project_code": "dobe",
+      "display_name": "Dobe",
+      "aliases": ["Dobe"],
+      "reference": "project-dobe.md"
+    }
+  ],
+  "fallback": "generic"
+}
