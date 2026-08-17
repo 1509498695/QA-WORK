@@ -94,8 +94,13 @@ def find_source_ref(packet: dict[str, Any], text: str) -> str:
 
 def build_valid_run(run_dir: Path, *, source_pending: bool = False) -> dict[str, Any]:
     run_dir.mkdir(parents=True, exist_ok=True)
-    packet, _ = build_source_layer(run_dir, reviewed=not source_pending)
+    packet, ledger = build_source_layer(run_dir, reviewed=not source_pending)
     source_ref = find_source_ref(packet, "达到 10 级")
+    visual_source_ref = next(
+        str(item["source_ref"])
+        for item in ledger["evidence"]
+        if item.get("visual_review_required")
+    )
     release = read_json(RULES / "release-manifest.json")["release_version"]
     meta = {
         "schema_version": "2.0",
@@ -153,6 +158,23 @@ def build_valid_run(run_dir: Path, *, source_pending: bool = False) -> dict[str,
             }
             for index in range(1, 9)
         ],
+    }
+    boundary_confirmations = {
+        "schema_version": "1.0",
+        "run_id": meta["run_id"],
+        "input_sha256": meta["input_sha256"],
+        "rule_release_version": meta["rule_release_version"],
+        "requirement_name": "周年庆宝箱",
+        "status": "awaiting_user_confirmation" if source_pending else "clear",
+        "items": [
+            {
+                "boundary_id": "BOUNDARY-0001",
+                "module": "来源完整性",
+                "question": "独立图片中的状态信息是否已完整纳入需求事实？",
+                "recommendation": "完成视觉复核后再确认正式交付；当前保留为待确认草稿。",
+                "source_refs": [visual_source_ref],
+            }
+        ] if source_pending else [],
     }
 
     base_case = {
@@ -256,6 +278,7 @@ def build_valid_run(run_dir: Path, *, source_pending: bool = False) -> dict[str,
         "source_facts.json": facts,
         "generation_blueprint.json": blueprint,
         "completeness_matrix.json": matrix,
+        "pending_boundary_confirmations.json": boundary_confirmations,
         "base_cases.json": base,
         "classification.json": classification,
         "candidate_cases.json": candidates,

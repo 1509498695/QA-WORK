@@ -12,7 +12,7 @@
 ```powershell
 & <bundled-python> <skill-root>\scripts\build_source_packet.py `
   --output-dir <output-root>\audit `
-  --pdftoppm <bundled-pdftoppm.cmd> `
+  --pdftoppm <bundled-pdftoppm.exe> `
   --source <file-1> --source <file-2>
 ```
 
@@ -47,7 +47,7 @@ if (Test-Path -LiteralPath $sidecar) {
 }
 ```
 
-构建器输出：根目录工作簿、`audit/workbook_readback.json` 和 `audit/workbook-preview.png`。
+构建器输出：根目录工作簿、`audit/workbook_readback.json`、`audit/workbook-preview-header.png` 和 `audit/workbook-preview.png`。
 
 ## 测试
 

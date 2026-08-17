@@ -43,6 +43,20 @@
 
 不允许用“已考虑”“常规检查”代替证据。任一 `pending` 都会把交付模式降为草稿。
 
+## 待确认边界清单
+
+`pending_boundary_confirmations.json` 与执行用例分离，用来承载用户真正需要决策的边界。每次运行都必须生成：没有问题时写 `status=clear` 和空 `items`；存在问题时写 `status=awaiting_user_confirmation`。
+
+每项必须包含：
+
+- `boundary_id`：按 `BOUNDARY-0001` 连续编号的稳定 ID；
+- `module`：问题所属业务模块；
+- `question`：一次只问一个可直接确认的业务边界；
+- `recommendation`：结合风险给出默认建议，不代替用户确认；
+- `source_refs`：至少一个可回查来源定位。
+
+来源未读完、来源冲突、事实/蓝图/完整性矩阵为 `pending` 时，清单不得为空。清单本身存在项目时也会把交付模式降为草稿。不要把这些问题新增为 Excel Sheet，也不要伪装成 A:J 执行用例。
+
 ## 基线用例
 
 `base_cases.json` 是从已确认蓝图直接得到的不可变基线。每条包含：

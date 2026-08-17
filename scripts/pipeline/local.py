@@ -18,6 +18,7 @@ MATRIX_STATES = {"covered", "not_applicable", "pending"}
 PROJECT_CODES = {"rok", "cod", "beagle", "dobe", "generic", "pending"}
 EXPECTED_DIMENSIONS = {f"GR-{index:02d}" for index in range(1, 9)}
 INVALID_FILENAME_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+BOUNDARY_ID_RE = re.compile(r"^BOUNDARY-[0-9]{4}$")
 FIXED_COUNT_KEY_RE = re.compile(
     r"^(?:expected|target|required|fixed|desired)_(?:case_)?count$|"
     r"^(?:expected_group_counts|group_quotas?|fixed_group_counts?)$",
@@ -277,6 +278,73 @@ def validate_blueprint_layer(
     }
 
 
+def validate_boundary_confirmations(
+    payload: dict[str, Any],
+    expected_metadata: dict[str, Any],
+    requirement_name: str,
+    known_refs: set[str],
+    upstream_pending_reasons: list[str],
+) -> dict[str, Any]:
+    errors: list[str] = []
+    if not isinstance(payload, dict):
+        return {
+            "status": "invalid",
+            "errors": ["pending_boundary_confirmations 必须是 object"],
+            "pending_reasons": [],
+            "item_count": 0,
+        }
+    if payload.get("schema_version") != LOCAL_SCHEMA_VERSION:
+        errors.append("pending_boundary_confirmations.schema_version 必须为 1.0")
+    for field in ("run_id", "input_sha256", "rule_release_version"):
+        if payload.get(field) != expected_metadata.get(field):
+            errors.append(f"pending_boundary_confirmations.{field} 与基础流水线不一致")
+    if payload.get("requirement_name") != requirement_name:
+        errors.append("pending_boundary_confirmations.requirement_name 与需求名称不一致")
+
+    raw_items = payload.get("items")
+    if not isinstance(raw_items, list):
+        errors.append("pending_boundary_confirmations.items 必须为数组")
+    items = _as_list(raw_items)
+    boundary_ids: list[str] = []
+    pending_reasons: list[str] = []
+    for index, item in enumerate(items):
+        label = f"pending_boundary_confirmations.items[{index}]"
+        if not isinstance(item, dict):
+            errors.append(f"{label} 必须是 object")
+            continue
+        boundary_id = str(item.get("boundary_id") or "")
+        boundary_ids.append(boundary_id)
+        if not BOUNDARY_ID_RE.fullmatch(boundary_id):
+            errors.append(f"{label}.boundary_id 必须符合 BOUNDARY-0001 格式")
+        elif boundary_id != f"BOUNDARY-{index + 1:04d}":
+            errors.append(f"{label}.boundary_id 必须按出现顺序连续编号")
+        for field in ("module", "question", "recommendation"):
+            if not str(item.get(field) or "").strip():
+                errors.append(f"{label}.{field} 不能为空")
+        errors.extend(_validate_refs(_as_list(item.get("source_refs")), known_refs, label))
+        if boundary_id and str(item.get("question") or "").strip():
+            pending_reasons.append(
+                f"边界待确认：{boundary_id} {str(item.get('module') or '').strip()}："
+                f"{str(item.get('question') or '').strip()}"
+            )
+    duplicates = duplicate_values(boundary_ids)
+    if duplicates:
+        errors.append("boundary_id 重复：" + ", ".join(duplicates))
+
+    expected_status = "awaiting_user_confirmation" if items else "clear"
+    if payload.get("status") != expected_status:
+        errors.append(f"pending_boundary_confirmations.status 应为 {expected_status}")
+    if upstream_pending_reasons and not items:
+        errors.append("存在待确认来源或蓝图事项，但 pending_boundary_confirmations.items 为空")
+
+    return {
+        "status": "invalid" if errors else "ok",
+        "errors": errors,
+        "pending_reasons": pending_reasons,
+        "item_count": len(items),
+    }
+
+
 def _walk_fixed_count_fields(value: Any, location: str = "$") -> list[tuple[str, Any]]:
     found: list[tuple[str, Any]] = []
     if isinstance(value, dict):
@@ -371,6 +439,12 @@ def build_local_readiness(run_dir: Path, module_snapshot_path: Path) -> dict[str
     blueprint = read_json(run_dir / "generation_blueprint.json")
     matrix = read_json(run_dir / "completeness_matrix.json")
     final = read_json(run_dir / "final_cases.json")
+    boundary_file_errors: list[str] = []
+    try:
+        boundary_confirmations = read_json(run_dir / "pending_boundary_confirmations.json")
+    except (OSError, ValueError) as error:
+        boundary_confirmations = {}
+        boundary_file_errors.append(f"pending_boundary_confirmations.json 不可读取：{error}")
     artifacts = {
         "base": read_json(run_dir / "base_cases.json"),
         "classification": read_json(run_dir / "classification.json"),
@@ -395,6 +469,18 @@ def build_local_readiness(run_dir: Path, module_snapshot_path: Path) -> dict[str
         metadata,
         source_report["known_source_refs"],
     )
+    upstream_pending_reasons = [
+        *source_report["pending_reasons"],
+        *blueprint_report["pending_reasons"],
+    ]
+    requirement_name = sanitize_requirement_name(str(facts.get("requirement_name") or ""))
+    boundary_report = validate_boundary_confirmations(
+        boundary_confirmations,
+        metadata,
+        requirement_name,
+        source_report["known_source_refs"],
+        upstream_pending_reasons,
+    )
     traceability_report = validate_traceability_and_count_policy(
         artifacts,
         blueprint,
@@ -402,19 +488,20 @@ def build_local_readiness(run_dir: Path, module_snapshot_path: Path) -> dict[str
         source_report["known_source_refs"],
     )
     blocking_errors = [
+        *boundary_file_errors,
         *pipeline_report.get("errors", []),
         *source_report["errors"],
         *blueprint_report["errors"],
+        *boundary_report["errors"],
         *traceability_report["errors"],
     ]
     if metadata["input_sha256"] != packet.get("package_sha256"):
         blocking_errors.append("基础流水线 input_sha256 与 source_packet.package_sha256 不一致")
     pending_reasons = [
-        *source_report["pending_reasons"],
-        *blueprint_report["pending_reasons"],
+        *upstream_pending_reasons,
+        *boundary_report["pending_reasons"],
     ]
     pending_reasons = list(dict.fromkeys(pending_reasons))
-    requirement_name = sanitize_requirement_name(str(facts.get("requirement_name") or ""))
     if not str(facts.get("requirement_name") or "").strip():
         blocking_errors.append("source_facts.requirement_name 不能为空")
 
@@ -437,6 +524,7 @@ def build_local_readiness(run_dir: Path, module_snapshot_path: Path) -> dict[str
         "project_code": facts.get("project_code"),
         "output_filename": output_filename,
         "pending_count": len(pending_reasons),
+        "boundary_confirmation_count": boundary_report["item_count"],
         "pending_reasons": pending_reasons,
         "blocking_errors": blocking_errors,
         "warnings": source_report["warnings"],
@@ -447,6 +535,7 @@ def build_local_readiness(run_dir: Path, module_snapshot_path: Path) -> dict[str
             "base_cases": pipeline_report.get("counts", {}).get("base_cases", 0),
             "candidate_cases": pipeline_report.get("counts", {}).get("candidate_cases", 0),
             "final_cases": pipeline_report.get("counts", {}).get("final_cases", 0),
+            "boundary_confirmations": boundary_report["item_count"],
         },
         "case_headers": list(CASE_HEADERS),
         "external_links_followed": False,

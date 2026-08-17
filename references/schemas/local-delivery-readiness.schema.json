@@ -9,6 +9,7 @@
     "requirement_name",
     "output_filename",
     "pending_count",
+    "boundary_confirmation_count",
     "blocking_errors",
     "warnings"
   ],
@@ -18,6 +19,7 @@
     "delivery_mode": {"enum": ["formal", "draft", "blocked"]},
     "output_filename": {"type": "string", "pattern": "\\.xlsx$"},
     "pending_count": {"type": "integer", "minimum": 0},
+    "boundary_confirmation_count": {"type": "integer", "minimum": 0},
     "blocking_errors": {"type": "array"},
     "warnings": {"type": "array"}
   }

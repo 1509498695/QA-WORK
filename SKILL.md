@@ -1,9 +1,9 @@
 ---
-name: qa-case-xlsx
+name: qa-case-xlsx-local
 description: 将用户上传的本地策划案或需求文件独立转换为陈镇个人风格的本地 Excel 测试用例。仅读取本地 DOCX、PDF、XLSX、Markdown、TXT、PNG/JPG，保留逐文件证据与图片映射，输出固定 A:J 用例表和本地审计包；不读取或写入飞书，不依赖 qa-case、QAWORK、Jira、Code Ask 或网络。
 ---
 
-# qa-case-xlsx
+# qa-case-xlsx-local
 
 把本地策划案源包转换成可复核的本地 `.xlsx` 测试用例。当前 Skill 是完整入口，不得转调 `qa-case` 或任何 QAWORK 私有流程。
 
@@ -38,6 +38,7 @@ qa-case-xlsx-output/<需求名>-<YYYYMMDD-HHmmss>/
    ├─ source_facts.json
    ├─ generation_blueprint.json
    ├─ completeness_matrix.json
+   ├─ pending_boundary_confirmations.json
    ├─ base_cases.json
    ├─ classification.json
    ├─ candidate_cases.json
@@ -48,6 +49,7 @@ qa-case-xlsx-output/<需求名>-<YYYYMMDD-HHmmss>/
    ├─ pipeline_validation.json
    ├─ delivery_readiness.json
    ├─ workbook_readback.json
+   ├─ workbook-preview-header.png
    ├─ workbook-preview.png
    └─ evidence/
 ```
@@ -76,6 +78,8 @@ qa-case-xlsx-output/<需求名>-<YYYYMMDD-HHmmss>/
 - 按 `generation_blueprint.schema.json` 生成 `generation_blueprint.json`，把需求拆成业务目标、角色、入口/资格、主流程、状态、数据边界、异常恢复、关联回归和来源定位。
 - 需求只说“复用/沿用旧玩法”但未描述旧行为时，写入“旧玩法基线缺口”，不得生成臆测的回归用例。
 - 按 GR-01～GR-08 生成 `completeness_matrix.json`。每项只能为 `covered`、`not_applicable` 或 `pending`；`not_applicable` 必须给出具体理由。
+- 按 [pending-boundary-confirmations.schema.json](references/schemas/pending-boundary-confirmations.schema.json) 始终生成 `pending_boundary_confirmations.json`。没有待确认边界时写 `status=clear` 和空 `items`；有来源缺口、冲突或未定实现边界时，每项必须写稳定 `boundary_id`、模块、可直接回答的问题、推荐口径和 `source_refs`。
+- 待确认边界清单只进入审计包和最终交付说明，不新增 Excel Sheet，也不混入 A:J 执行用例。
 
 ### 4. 套用本地规则并写候选
 
@@ -84,6 +88,7 @@ qa-case-xlsx-output/<需求名>-<YYYYMMDD-HHmmss>/
 - 先写不可变 `base_cases.json`，再写分类、候选、横向/项目规则评估、最终用例和映射账本。
 - 状态、权限、对象、时序、正反路径改变主要验证目标时拆分；同一静态展示目标可以合并。
 - 最终用例使用固定 A:J 十列：`用例编号、一级模块、二级模块、检查点、前置条件、操作步骤、预期结果、优先级、测试结果、备注`。
+- 按业务阅读顺序排列用例，使同一一级模块、同一一级模块内的同一二级模块尽量连续；只有相邻同名组才能在工作簿中合并，禁止跨组全局合并。
 - 默认生成自然完整数量，不预设条数。只有用户明确要求固定数、精简版或示例版时才压缩。
 - `source_facts.count_policy` 默认写 `natural`；固定、抽样或精简模式必须记录用户要求来源，禁止在蓝图、脚本或产物中暗藏目标数量/分组配额。
 
@@ -91,16 +96,19 @@ qa-case-xlsx-output/<需求名>-<YYYYMMDD-HHmmss>/
 
 - 运行 `scripts/run_case_pipeline.py validate-rules`，规则数必须恰好为 50，索引和发布清单哈希必须一致。
 - 运行 `validate-run`，验证跨产物 run/input/rule 版本、语义签名、基线去向、规则评估、原子拆分、模块命名和映射完整性。
-- 运行 `readiness-local`，纳入源包、事实、蓝图和完整性矩阵门禁并计算正式/草稿文件名。
+- 运行 `readiness-local`，纳入源包、事实、蓝图、完整性矩阵和待确认边界清单门禁并计算正式/草稿文件名。
 - 校验失败时只修对应产物，不跳过门禁，也不直接写工作簿。
 
 ### 6. 生成并回读本地工作簿
 
 - 使用 `assets/local-case-template.xlsx` 和 `scripts/build_local_case_workbook.mjs` 生成工作簿；工作簿创建/编辑必须使用 Codex bundled `@oai/artifact-tool`。
 - 按 [local-runtime.md](references/local-runtime.md) 在输出目录创建临时 `node_modules` junction，复制构建器后运行；完成后可移除该临时目录。
-- 用例从第 11 行开始写入；保留标题、需求元数据、结果统计、筛选、冻结窗格、优先级/测试结果校验、自动换行与条件格式。
+- 使用唯一的蓝色双层标题版式：A:B 为 DRI，C2:G5 为用例总数，C6:G8 为本地来源文件名，H:J 为结果统计，A9:J10 为两层用例表头；正式与草稿使用同一版式。
+- 用例从第 11 行开始写入。只合并连续相同的 B 列一级模块与同一一级模块内连续相同的 C 列二级模块；D:J 正文不得合并。
+- 不创建 Excel Table、不叠加筛选表主题，也不在工作簿顶部展示 SHA、项目码、规则版本、交付模式或待确认数量；这些信息只保留在审计包。
+- 保留冻结窗格、优先级/测试结果校验、结果统计公式、自动换行与条件格式。
 - `操作步骤` 每个动作一行并连续编号；不要把真实换行写成字面量 `\\n`。
-- 构建器必须生成 `workbook_readback.json` 与 `workbook-preview.png`。回读必须逐格核对 A:J 值、表头顺序、用例数、公式、合并单元格和输出文件名；预览须无截断、遮挡和不可读文本。
+- 构建器必须生成 `workbook_readback.json`、`workbook-preview-header.png` 与 `workbook-preview.png`。回读必须逐格核对 A:J 值、双层表头顺序、用例数、公式、顶部合并、模块合并、D:J 无合并、零 Excel Table、本地来源名和输出文件名；两张预览须无截断、遮挡和不可读文本。
 
 ## 交付门禁
 
@@ -111,6 +119,7 @@ qa-case-xlsx-output/<需求名>-<YYYYMMDD-HHmmss>/
 - 事实、蓝图、完整性矩阵、候选、最终用例和映射账本之间可追溯。
 - 50 条规则包、流水线和本地 readiness 全部校验通过。
 - 工作簿根文件存在，文件名与 readiness 一致；A:J 精确回读一致。
+- `pending_boundary_confirmations.json` 与 readiness 数量一致；有待确认项时交付说明逐项列出问题、推荐口径和证据定位。
 - 预览已视觉检查；工作簿不含飞书 URL、QAWORK 路径、外部数据连接或宏。
 - 交付时只引用根目录工作簿；审计目录用于复核，不把其内容冒充正式用例。
 

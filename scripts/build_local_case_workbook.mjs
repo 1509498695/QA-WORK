@@ -4,11 +4,11 @@ import path from "node:path";
 import process from "node:process";
 
 import { FileBlob, SpreadsheetFile, Workbook } from "@oai/artifact-tool";
+import JSZip from "jszip";
 
 
 const SHEET_NAME = "测试用例";
 const DATA_START_ROW = 11;
-const RESERVED_END_ROW = 10010;
 const CASE_HEADERS = [
   "用例编号",
   "一级模块",
@@ -21,22 +21,54 @@ const CASE_HEADERS = [
   "测试结果",
   "备注",
 ];
+const DISPLAY_HEADERS = [
+  "用例编号",
+  "一级模块",
+  "二级模块",
+  "检查点（必要项）",
+  "前置条件",
+  "操作步骤（必要项）",
+  "预期结果（必要项）",
+  "优先级",
+  "测试结果",
+  "备注",
+];
 const RESULT_CODES = ["P", "F", "D", "N/A"];
 const COLORS = {
-  ink: "#20322C",
+  ink: "#222222",
+  blue: "#86D3E5",
+  yellow: "#FFF2CC",
   forest: "#2F5D50",
-  forestDark: "#24483F",
-  sage: "#DCE8E1",
-  cream: "#F4F1E8",
-  sand: "#E8E0D0",
   white: "#FFFFFF",
-  line: "#CBD5CF",
-  muted: "#63716B",
-  pass: "#DDF3E4",
-  fail: "#F8D9D7",
-  defer: "#FFF1C7",
-  na: "#E6E8EB",
+  line: "#BFBFBF",
+  muted: "#666666",
+  pass: "#D9EAD3",
+  fail: "#F4CCCC",
+  defer: "#FFE599",
+  na: "#D9D9D9",
 };
+const TOP_MERGES = [
+  "A1:J1",
+  "C2:C5",
+  "D2:G5",
+  "C6:C8",
+  "D6:G8",
+  "I2:J2",
+  "I3:J3",
+  "I4:J4",
+  "I5:J5",
+  "I6:J6",
+  "I7:J7",
+  "I8:J8",
+  "A9:A10",
+  "B9:D9",
+  "E9:E10",
+  "F9:F10",
+  "G9:G10",
+  "H9:H10",
+  "I9:I10",
+  "J9:J10",
+];
 
 
 function parseArgs(argv) {
@@ -100,123 +132,122 @@ function formatBaseSheet(sheet) {
   sheet.showGridLines = false;
   sheet.freezePanes.freezeRows(10);
 
-  sheet.getRange("A1:J1").merge();
-  sheet.getRange("I2:J2").merge();
-  sheet.getRange("B3:G3").merge();
-  sheet.getRange("B4:G4").merge();
-  sheet.getRange("B5:C5").merge();
-  sheet.getRange("E5:G5").merge();
-  sheet.getRange("A9:J9").merge();
+  for (const address of TOP_MERGES) sheet.getRange(address).merge();
 
-  sheet.getRange("A1:J1").values = [["本地测试用例 - qa-case-xlsx"]];
-  sheet.getRange("A2:J8").values = [
-    ["需求名称", "", "用例总数", "", "项目", "", "交付模式", "测试结果类型", "结果统计", null],
-    ["来源文件", "", null, null, null, null, null, "测试通过（P）", "", null],
-    ["源包 SHA-256", "", null, null, null, null, null, "未通过（F）", "", null],
-    ["生成状态", "", null, "规则版本", "", null, null, "删除用例（D）", "", null],
-    ["", "", "", "", "", "", "", "无需测试（N/A）", "", null],
-    ["", "", "", "", "", "", "", "执行率", "", null],
-    ["", "", "", "", "", "", "", "通过率", "", null],
+  sheet.getRange("A1").values = [["测试用例"]];
+  sheet.getRange("A2:A8").values = [
+    ["DRI"],
+    ["客户端"],
+    ["服务器"],
+    ["UT/UE"],
+    ["系统/运营/战斗策划"],
+    ["文案/叙事"],
+    ["数值"],
   ];
-  sheet.getRange("A9:J9").values = [["用例明细（固定 A:J）"]];
-  sheet.getRange("A10:J10").values = [CASE_HEADERS];
+  sheet.getRange("B2:B8").values = [[""], [""], [""], [""], [""], [""], [""]];
+  sheet.getRange("C2").values = [["用例总数"]];
+  sheet.getRange("C6").values = [["SVN路径或者参考文档"]];
+  sheet.getRange("H2:H8").values = [
+    ["测试结果类型"],
+    ["测试通过（P）"],
+    ["未通过（F）"],
+    ["删除用例（D）"],
+    ["无需测试（N/A）"],
+    ["执行率"],
+    ["通过率"],
+  ];
+  sheet.getRange("I2").values = [["结果统计"]];
 
-  sheet.getRange("D2").formulas = [[`=MAX(COUNTA($G$${DATA_START_ROW}:$G$${RESERVED_END_ROW}),COUNTA($F$${DATA_START_ROW}:$F$${RESERVED_END_ROW}))`]];
+  sheet.getRange("A9").values = [["用例编号"]];
+  sheet.getRange("B9").values = [["测试标题"]];
+  sheet.getRange("B10:D10").values = [["一级模块", "二级模块", "检查点（必要项）"]];
+  sheet.getRange("E9").values = [["前置条件"]];
+  sheet.getRange("F9").values = [["操作步骤（必要项）"]];
+  sheet.getRange("G9").values = [["预期结果（必要项）"]];
+  sheet.getRange("H9").values = [["优先级"]];
+  sheet.getRange("I9").values = [["测试结果"]];
+  sheet.getRange("J9").values = [["备注"]];
+
+  sheet.getRange("D2").formulas = [[`=COUNTA($A$${DATA_START_ROW}:$A$${DATA_START_ROW})`]];
   sheet.getRange("I3:I6").formulas = RESULT_CODES.map(
-    (code) => [`=COUNTIF($I$${DATA_START_ROW}:$I$${RESERVED_END_ROW},"${code}")`],
+    (code) => [`=COUNTIF($I$${DATA_START_ROW}:$I$${DATA_START_ROW},"${code}")`],
   );
   sheet.getRange("I7").formulas = [["=IF($D$2=0,0,SUM($I$3:$I$6)/$D$2)"]];
   sheet.getRange("I8").formulas = [["=IF($D$2=0,0,$I$3/$D$2)"]];
 
   sheet.getRange("A1:J1").format = {
-    fill: COLORS.forestDark,
-    font: { bold: true, color: COLORS.white, size: 18, name: "Microsoft YaHei" },
+    fill: COLORS.blue,
+    font: { bold: true, color: COLORS.ink, size: 14, name: "Microsoft YaHei" },
     horizontalAlignment: "center",
     verticalAlignment: "center",
+    borders: { preset: "all", style: "thin", color: COLORS.line },
   };
-  sheet.getRange("A1:J1").format.rowHeight = 36;
+  sheet.getRange("A1:J1").format.rowHeight = 34;
 
   sheet.getRange("A2:J8").format = {
     font: { color: COLORS.ink, size: 10, name: "Microsoft YaHei" },
+    horizontalAlignment: "center",
     verticalAlignment: "center",
     wrapText: true,
+    borders: { preset: "all", style: "thin", color: COLORS.line },
   };
-  sheet.getRange("A2:A5").format = {
-    fill: COLORS.sage,
-    font: { bold: true, color: COLORS.ink, name: "Microsoft YaHei" },
-    verticalAlignment: "center",
+  sheet.getRange("A2:A8").format.fill = COLORS.blue;
+  sheet.getRange("A2:A8").format.font = {
+    bold: true,
+    color: COLORS.ink,
+    size: 10,
+    name: "Microsoft YaHei",
   };
-  sheet.getRange("C2:C2").format = {
-    fill: COLORS.sage,
-    font: { bold: true, color: COLORS.ink, name: "Microsoft YaHei" },
+  sheet.getRange("B2:B8").format.fill = COLORS.yellow;
+  sheet.getRange("C2:C8").format.fill = COLORS.blue;
+  sheet.getRange("C2:C8").format.font = {
+    bold: true,
+    color: COLORS.ink,
+    size: 10,
+    name: "Microsoft YaHei",
+  };
+  sheet.getRange("D2:G8").format.fill = COLORS.white;
+  sheet.getRange("D2:G8").format.horizontalAlignment = "left";
+  sheet.getRange("D2").format = {
+    fill: COLORS.white,
+    font: { bold: true, color: COLORS.ink, size: 16, name: "Microsoft YaHei" },
     horizontalAlignment: "center",
     verticalAlignment: "center",
   };
-  sheet.getRange("E2:E2").format = {
-    fill: COLORS.sage,
-    font: { bold: true, color: COLORS.ink, name: "Microsoft YaHei" },
-    horizontalAlignment: "center",
-    verticalAlignment: "center",
+  sheet.getRange("H2:H8").format.fill = COLORS.blue;
+  sheet.getRange("H2:H8").format.font = {
+    bold: true,
+    color: COLORS.ink,
+    size: 10,
+    name: "Microsoft YaHei",
   };
-  sheet.getRange("G2:G2").format = {
-    fill: COLORS.sage,
-    font: { bold: true, color: COLORS.ink, name: "Microsoft YaHei" },
-    horizontalAlignment: "center",
-    verticalAlignment: "center",
-  };
-  sheet.getRange("D5:D5").format = {
-    fill: COLORS.sage,
-    font: { bold: true, color: COLORS.ink, name: "Microsoft YaHei" },
-    horizontalAlignment: "center",
-    verticalAlignment: "center",
-  };
-  sheet.getRange("H2:J8").format = {
-    fill: COLORS.cream,
-    font: { color: COLORS.ink, name: "Microsoft YaHei" },
-    verticalAlignment: "center",
-    horizontalAlignment: "center",
-  };
-  sheet.getRange("H2:J2").format = {
-    fill: COLORS.forest,
-    font: { bold: true, color: COLORS.white, name: "Microsoft YaHei" },
+  sheet.getRange("I2:J8").format.fill = COLORS.white;
+  sheet.getRange("I2:J8").format.horizontalAlignment = "center";
+  sheet.getRange("I2").format = {
+    fill: COLORS.blue,
+    font: { bold: true, color: COLORS.ink, size: 10, name: "Microsoft YaHei" },
     horizontalAlignment: "center",
     verticalAlignment: "center",
   };
   sheet.getRange("I7:I8").format.numberFormat = "0.0%";
-  sheet.getRange("A2:J8").format.borders = {
-    preset: "inside",
-    style: "thin",
-    color: COLORS.line,
-  };
-  sheet.getRange("A2:J8").format.borders = {
-    preset: "all",
-    style: "thin",
-    color: COLORS.line,
-  };
+  sheet.getRange("A2:J8").format.rowHeight = 25;
+  sheet.getRange("A6:J6").format.rowHeight = 32;
 
-  sheet.getRange("A9:J9").format = {
-    fill: COLORS.sand,
-    font: { bold: true, color: COLORS.ink, size: 11, name: "Microsoft YaHei" },
-    horizontalAlignment: "left",
-    verticalAlignment: "center",
-  };
-  sheet.getRange("A9:J9").format.rowHeight = 26;
-  sheet.getRange("A10:J10").format = {
-    fill: COLORS.forest,
-    font: { bold: true, color: COLORS.white, name: "Microsoft YaHei" },
+  sheet.getRange("A9:J10").format = {
+    fill: COLORS.blue,
+    font: { bold: true, color: COLORS.ink, size: 10, name: "Microsoft YaHei" },
     horizontalAlignment: "center",
     verticalAlignment: "center",
     wrapText: true,
-    borders: { preset: "all", style: "thin", color: COLORS.white },
+    borders: { preset: "all", style: "thin", color: COLORS.line },
   };
-  sheet.getRange("A10:J10").format.rowHeight = 32;
+  sheet.getRange("A9:J9").format.rowHeight = 28;
+  sheet.getRange("A10:J10").format.rowHeight = 28;
 
-  const widths = [70, 120, 120, 230, 220, 330, 330, 100, 85, 155];
+  const widths = [110, 138, 136, 188, 250, 342, 292, 108, 108, 126];
   widths.forEach((width, index) => {
     sheet.getRangeByIndexes(0, index, 1, 1).format.columnWidthPx = width;
   });
-  sheet.getRange("A2:J8").format.rowHeight = 24;
-  sheet.getRange("A3:A4").format.rowHeight = 32;
 }
 
 
@@ -224,40 +255,41 @@ function configureEditableRows(sheet, endRow) {
   const effectiveEnd = Math.max(endRow, DATA_START_ROW);
   const allData = sheet.getRange(`A${DATA_START_ROW}:J${effectiveEnd}`);
   allData.format = {
+    fill: COLORS.white,
     font: { color: COLORS.ink, size: 10, name: "Microsoft YaHei" },
     verticalAlignment: "center",
     wrapText: true,
     borders: { preset: "all", style: "thin", color: COLORS.line },
   };
   sheet.getRange(`A${DATA_START_ROW}:A${effectiveEnd}`).format.horizontalAlignment = "center";
-  sheet.getRange(`H${DATA_START_ROW}:I${effectiveEnd}`).format.horizontalAlignment = "center";
   sheet.getRange(`B${DATA_START_ROW}:G${effectiveEnd}`).format.horizontalAlignment = "left";
+  sheet.getRange(`H${DATA_START_ROW}:I${effectiveEnd}`).format.horizontalAlignment = "center";
   sheet.getRange(`J${DATA_START_ROW}:J${effectiveEnd}`).format.horizontalAlignment = "left";
   allData.format.autofitRows();
 
-  sheet.getRange(`H${DATA_START_ROW}:H${RESERVED_END_ROW}`).dataValidation = {
+  sheet.getRange(`H${DATA_START_ROW}:H${effectiveEnd}`).dataValidation = {
     rule: { type: "list", values: ["P0", "P1", "P2"] },
   };
-  sheet.getRange(`I${DATA_START_ROW}:I${RESERVED_END_ROW}`).dataValidation = {
+  sheet.getRange(`I${DATA_START_ROW}:I${effectiveEnd}`).dataValidation = {
     rule: { type: "list", values: RESULT_CODES },
   };
 
-  const resultRange = sheet.getRange(`I${DATA_START_ROW}:I${RESERVED_END_ROW}`);
+  const resultRange = sheet.getRange(`I${DATA_START_ROW}:I${effectiveEnd}`);
   resultRange.conditionalFormats.deleteAll();
   resultRange.conditionalFormats.add("cellIs", {
     operator: "equal",
     formula: '"P"',
-    format: { fill: COLORS.pass, font: { color: COLORS.forestDark, bold: true } },
+    format: { fill: COLORS.pass, font: { color: "#274E13", bold: true } },
   });
   resultRange.conditionalFormats.add("cellIs", {
     operator: "equal",
     formula: '"F"',
-    format: { fill: COLORS.fail, font: { color: "#8C2F2C", bold: true } },
+    format: { fill: COLORS.fail, font: { color: "#990000", bold: true } },
   });
   resultRange.conditionalFormats.add("cellIs", {
     operator: "equal",
     formula: '"D"',
-    format: { fill: COLORS.defer, font: { color: "#7A5A00", bold: true } },
+    format: { fill: COLORS.defer, font: { color: "#7F6000", bold: true } },
   });
   resultRange.conditionalFormats.add("cellIs", {
     operator: "equal",
@@ -274,32 +306,31 @@ function removeTables(sheet) {
 }
 
 
-function addCasesTable(sheet, endRow) {
-  removeTables(sheet);
-  const effectiveEnd = Math.max(endRow, DATA_START_ROW);
-  const table = sheet.tables.add(`A10:J${effectiveEnd}`, true, "TestCasesTable");
-  table.style = "TableStyleMedium4";
-  table.showBandedColumns = false;
-  table.showTotals = false;
-  table.showFilterButton = true;
-}
-
-
 function createTemplateWorkbook() {
   const workbook = Workbook.create();
   const sheet = workbook.worksheets.add(SHEET_NAME);
   formatBaseSheet(sheet);
   sheet.getRange("A11:J11").values = [[null, null, null, null, null, null, null, null, null, null]];
   configureEditableRows(sheet, DATA_START_ROW);
-  addCasesTable(sheet, DATA_START_ROW);
   return workbook;
 }
 
 
 async function renderWorkbook(workbook, outputPath, endRow) {
+  const headerPreview = await workbook.render({
+    sheetName: SHEET_NAME,
+    range: "A1:J10",
+    scale: 1,
+    format: "png",
+  });
+  await fs.writeFile(
+    path.join(path.dirname(outputPath), "workbook-preview-header.png"),
+    new Uint8Array(await headerPreview.arrayBuffer()),
+  );
   const preview = await workbook.render({
     sheetName: SHEET_NAME,
-    range: `A1:J${Math.max(Math.min(endRow, 80), 14)}`,
+    // Render the body separately. The header preview above carries both title rows.
+    range: `A${DATA_START_ROW}:J${Math.max(Math.min(endRow, DATA_START_ROW + 32), 14)}`,
     scale: 1,
     format: "png",
   });
@@ -423,8 +454,52 @@ function sourceNames(sourcePacket) {
 }
 
 
+function contiguousGroups(cases, field, column, parentField = null) {
+  const groups = [];
+  let startIndex = 0;
+  while (startIndex < cases.length) {
+    const value = normalizeValue(cases[startIndex][field]);
+    const parent = parentField ? normalizeValue(cases[startIndex][parentField]) : "";
+    let endIndex = startIndex;
+    while (
+      endIndex + 1 < cases.length
+      && normalizeValue(cases[endIndex + 1][field]) === value
+      && (!parentField || normalizeValue(cases[endIndex + 1][parentField]) === parent)
+    ) {
+      endIndex += 1;
+    }
+    if (value && endIndex > startIndex) {
+      groups.push({
+        field,
+        value,
+        start_row: DATA_START_ROW + startIndex,
+        end_row: DATA_START_ROW + endIndex,
+        range: `${column}${DATA_START_ROW + startIndex}:${column}${DATA_START_ROW + endIndex}`,
+      });
+    }
+    startIndex = endIndex + 1;
+  }
+  return groups;
+}
+
+
+function moduleMergeGroups(cases) {
+  return [
+    ...contiguousGroups(cases, "一级模块", "B"),
+    ...contiguousGroups(cases, "二级模块", "C", "一级模块"),
+  ];
+}
+
+
+function mergeModuleCells(sheet, cases) {
+  for (const group of moduleMergeGroups(cases)) {
+    sheet.getRange(group.range).merge();
+  }
+}
+
+
 function setDynamicFormulas(sheet, endRow) {
-  sheet.getRange("D2").formulas = [[`=MAX(COUNTA($G$${DATA_START_ROW}:$G$${endRow}),COUNTA($F$${DATA_START_ROW}:$F$${endRow}))`]];
+  sheet.getRange("D2").formulas = [[`=COUNTA($A$${DATA_START_ROW}:$A$${endRow})`]];
   sheet.getRange("I3:I6").formulas = RESULT_CODES.map(
     (code) => [`=COUNTIF($I$${DATA_START_ROW}:$I$${endRow},"${code}")`],
   );
@@ -433,33 +508,78 @@ function setDynamicFormulas(sheet, endRow) {
 }
 
 
-function populateWorkbook(workbook, finalCases, readiness, sourcePacket) {
+function assertTemplateContract(workbook) {
   const sheet = workbook.worksheets.getItem(SHEET_NAME);
+  const actual = [
+    normalizeValue(sheet.getRange("A2").values[0][0]),
+    normalizeValue(sheet.getRange("C2").values[0][0]),
+    normalizeValue(sheet.getRange("C6").values[0][0]),
+    normalizeValue(sheet.getRange("H2").values[0][0]),
+    normalizeValue(sheet.getRange("I2").values[0][0]),
+    normalizeValue(sheet.getRange("A9").values[0][0]),
+    normalizeValue(sheet.getRange("B9").values[0][0]),
+    normalizeValue(sheet.getRange("B10").values[0][0]),
+    normalizeValue(sheet.getRange("C10").values[0][0]),
+    normalizeValue(sheet.getRange("D10").values[0][0]),
+  ];
+  const expected = [
+    "DRI",
+    "用例总数",
+    "SVN路径或者参考文档",
+    "测试结果类型",
+    "结果统计",
+    "用例编号",
+    "测试标题",
+    "一级模块",
+    "二级模块",
+    "检查点（必要项）",
+  ];
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`本地模板不符合个人用例版式：${JSON.stringify(actual)}`);
+  }
+  return sheet;
+}
+
+
+function populateWorkbook(workbook, finalCases, readiness, sourcePacket) {
+  const sheet = assertTemplateContract(workbook);
   removeTables(sheet);
-  sheet.getRange(`A${DATA_START_ROW}:J${RESERVED_END_ROW}`).clear({ applyTo: "contents" });
 
   const cases = finalCases.cases;
   const endRow = DATA_START_ROW + cases.length - 1;
-  sheet.getRange("A1:J1").values = [[
-    `${readiness.requirement_name}测试用例 - qa-case-xlsx`,
-  ]];
-  sheet.getRange("B2").values = [[readiness.requirement_name]];
-  sheet.getRange("F2").values = [[readiness.project_code || "generic"]];
-  sheet.getRange("G2").values = [[readiness.delivery_mode === "formal" ? "正式" : "待确认草稿"]];
-  sheet.getRange("B3:G3").values = [[sourceNames(sourcePacket)]];
-  sheet.getRange("B4:G4").values = [[sourcePacket.package_sha256 || ""]];
-  sheet.getRange("B5:C5").values = [[readiness.pending_count === 0 ? "全部门禁通过" : `待确认 ${readiness.pending_count} 项`]];
-  sheet.getRange("E5:G5").values = [[readiness.rule_release_version || ""]];
+  sheet.getRange("A1").values = [[`${readiness.requirement_name}测试用例`]];
+  sheet.getRange("D6").values = [[sourceNames(sourcePacket)]];
   sheet.getRange(`A${DATA_START_ROW}:J${endRow}`).values = casesMatrix(cases);
   setDynamicFormulas(sheet, endRow);
   configureEditableRows(sheet, endRow);
-  addCasesTable(sheet, endRow);
+  mergeModuleCells(sheet, cases);
   return { sheet, endRow };
 }
 
 
 function normalizeMatrix(matrix) {
   return matrix.map((row) => row.map(normalizeValue));
+}
+
+
+function expandMergedModuleValues(matrix) {
+  let primaryModule = "";
+  let secondaryModule = "";
+  return matrix.map((row) => {
+    const expanded = row.map(normalizeValue);
+    if (expanded[1]) {
+      if (expanded[1] !== primaryModule) secondaryModule = "";
+      primaryModule = expanded[1];
+    } else {
+      expanded[1] = primaryModule;
+    }
+    if (expanded[2]) {
+      secondaryModule = expanded[2];
+    } else {
+      expanded[2] = secondaryModule;
+    }
+    return expanded;
+  });
 }
 
 
@@ -482,24 +602,153 @@ function compareCases(actual, expected) {
 }
 
 
-async function verifyExportedWorkbook(outputPath, finalCases, readiness) {
+function decodeXmlAttribute(value) {
+  return value
+    .replaceAll("&quot;", '"')
+    .replaceAll("&apos;", "'")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&amp;", "&");
+}
+
+
+function xmlAttribute(tag, name) {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = tag.match(new RegExp(`(?:\\s|^)${escapedName}="([^"]*)"`));
+  return match ? decodeXmlAttribute(match[1]) : "";
+}
+
+
+async function workbookStructureFromXlsx(bytes, sheetName) {
+  const zip = await JSZip.loadAsync(bytes);
+  const workbookFile = zip.file("xl/workbook.xml");
+  const relationshipsFile = zip.file("xl/_rels/workbook.xml.rels");
+  if (!workbookFile || !relationshipsFile) {
+    throw new Error("工作簿缺少 workbook.xml 或其关系文件");
+  }
+  const workbookXml = await workbookFile.async("string");
+  const relationshipsXml = await relationshipsFile.async("string");
+  const sheetTag = [...workbookXml.matchAll(/<(?:[A-Za-z_][\w.-]*:)?sheet\b[^>]*\/?\s*>/g)]
+    .map((match) => match[0])
+    .find((tag) => xmlAttribute(tag, "name") === sheetName);
+  if (!sheetTag) throw new Error(`工作簿中找不到 Sheet：${sheetName}`);
+  const relationshipId = xmlAttribute(sheetTag, "r:id");
+  const relationshipTag = [...relationshipsXml.matchAll(/<(?:[A-Za-z_][\w.-]*:)?Relationship\b[^>]*\/?\s*>/g)]
+    .map((match) => match[0])
+    .find((tag) => xmlAttribute(tag, "Id") === relationshipId);
+  if (!relationshipTag) throw new Error(`工作簿关系中找不到 ${relationshipId}`);
+  const target = xmlAttribute(relationshipTag, "Target");
+  const worksheetPath = target.startsWith("/")
+    ? target.slice(1)
+    : path.posix.normalize(`xl/${target}`);
+  const worksheetFile = zip.file(worksheetPath);
+  if (!worksheetFile) throw new Error(`工作簿缺少工作表文件：${worksheetPath}`);
+  const worksheetXml = await worksheetFile.async("string");
+  return {
+    mergeRanges: [...worksheetXml.matchAll(/<(?:[A-Za-z_][\w.-]*:)?mergeCell\b[^>]*\bref="([^"]+)"[^>]*\/?\s*>/g)]
+      .map((match) => decodeXmlAttribute(match[1]).toUpperCase()),
+    tableParts: Object.keys(zip.files)
+      .filter((name) => name.startsWith("xl/tables/") && name.endsWith(".xml"))
+      .sort(),
+  };
+}
+
+
+function columnNumber(label) {
+  return [...label].reduce((value, character) => value * 26 + character.charCodeAt(0) - 64, 0);
+}
+
+
+function bodyMergeTouchesProtectedColumns(range) {
+  const match = range.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
+  if (!match) return true;
+  const [, startColumn, startRow, endColumn, endRow] = match;
+  return Number(endRow) >= DATA_START_ROW
+    && Math.max(columnNumber(startColumn), columnNumber(endColumn)) >= columnNumber("D");
+}
+
+
+function assertBoundaryConfirmations(boundaryConfirmations, finalCases, readiness) {
+  if (boundaryConfirmations.schema_version !== "1.0") {
+    throw new Error("pending_boundary_confirmations.schema_version 必须为 1.0");
+  }
+  for (const field of ["run_id", "input_sha256", "rule_release_version"]) {
+    if (boundaryConfirmations[field] !== finalCases[field]) {
+      throw new Error(`pending_boundary_confirmations.${field} 与 final_cases 不一致`);
+    }
+  }
+  if (boundaryConfirmations.requirement_name !== readiness.requirement_name) {
+    throw new Error("pending_boundary_confirmations.requirement_name 与 delivery_readiness 不一致");
+  }
+  const items = boundaryConfirmations.items;
+  if (!Array.isArray(items)) throw new Error("pending_boundary_confirmations.items 必须为数组");
+  const expectedStatus = items.length ? "awaiting_user_confirmation" : "clear";
+  if (boundaryConfirmations.status !== expectedStatus) {
+    throw new Error(`pending_boundary_confirmations.status 应为 ${expectedStatus}`);
+  }
+  for (const [index, item] of items.entries()) {
+    const expectedId = `BOUNDARY-${String(index + 1).padStart(4, "0")}`;
+    if (!item || typeof item !== "object" || item.boundary_id !== expectedId) {
+      throw new Error(`pending_boundary_confirmations.items[${index}].boundary_id 应为 ${expectedId}`);
+    }
+    for (const field of ["module", "question", "recommendation"]) {
+      if (!normalizeValue(item[field]).trim()) {
+        throw new Error(`pending_boundary_confirmations.items[${index}].${field} 不能为空`);
+      }
+    }
+    if (!Array.isArray(item.source_refs) || item.source_refs.length === 0) {
+      throw new Error(`pending_boundary_confirmations.items[${index}].source_refs 不能为空`);
+    }
+  }
+  if (readiness.boundary_confirmation_count !== items.length) {
+    throw new Error("delivery_readiness.boundary_confirmation_count 与边界确认项数量不一致");
+  }
+  return items;
+}
+
+
+async function verifyExportedWorkbook(
+  outputPath,
+  finalCases,
+  readiness,
+  sourcePacket,
+  boundaryConfirmations,
+) {
   const input = await FileBlob.load(outputPath);
   const workbook = await SpreadsheetFile.importXlsx(input);
   const sheet = workbook.worksheets.getItem(SHEET_NAME);
   const endRow = DATA_START_ROW + finalCases.cases.length - 1;
   const expected = casesMatrix(finalCases.cases);
-  const actual = normalizeMatrix(sheet.getRange(`A${DATA_START_ROW}:J${endRow}`).values);
+  const actual = expandMergedModuleValues(
+    normalizeMatrix(sheet.getRange(`A${DATA_START_ROW}:J${endRow}`).values),
+  );
   const errors = compareCases(actual, expected);
 
-  const header = normalizeMatrix(sheet.getRange("A10:J10").values)[0];
-  if (JSON.stringify(header) !== JSON.stringify(CASE_HEADERS)) {
+  const header = ["A9", "B10", "C10", "D10", "E9", "F9", "G9", "H9", "I9", "J9"]
+    .map((address) => normalizeValue(sheet.getRange(address).values[0][0]));
+  const headerMatches = JSON.stringify(header) === JSON.stringify(DISPLAY_HEADERS);
+  if (!headerMatches) {
     errors.push(`A:J 表头顺序不一致：${JSON.stringify(header)}`);
   }
   const title = normalizeValue(sheet.getRange("A1").values[0][0]);
-  if (!title.includes(readiness.requirement_name)) errors.push("标题未包含需求名称");
+  const titleMatches = title === `${readiness.requirement_name}测试用例`;
+  if (!titleMatches) errors.push("标题与需求名称不一致");
+  const actualSourceNames = normalizeValue(sheet.getRange("D6").values[0][0]);
+  const expectedSourceNames = sourceNames(sourcePacket);
+  const sourceNamesMatch = actualSourceNames === expectedSourceNames;
+  if (!sourceNamesMatch) {
+    errors.push(`本地来源文件不一致：expected=${expectedSourceNames} actual=${actualSourceNames}`);
+  }
   const formulas = normalizeMatrix(sheet.getRange("D2:I8").formulas);
   const formulaText = formulas.flat().join("\n").toUpperCase().replaceAll("$", "");
-  for (const expectedFormulaToken of ["COUNTA", "COUNTIF", "SUM(I3:I6)", "D2"]) {
+  for (const expectedFormulaToken of [
+    "COUNTA",
+    "COUNTIF",
+    "SUM(I3:I6)",
+    "D2",
+    `A${DATA_START_ROW}:A${endRow}`,
+    `I${DATA_START_ROW}:I${endRow}`,
+  ]) {
     if (!formulaText.includes(expectedFormulaToken)) {
       errors.push(`统计公式缺少 ${expectedFormulaToken}`);
     }
@@ -525,6 +774,37 @@ async function verifyExportedWorkbook(outputPath, finalCases, readiness) {
     maxChars: 16000,
   });
   const bytes = await fs.readFile(outputPath);
+  const expectedModuleMerges = moduleMergeGroups(finalCases.cases).map((group) => group.range.toUpperCase());
+  const { mergeRanges: actualMergeRanges, tableParts } = await workbookStructureFromXlsx(bytes, SHEET_NAME);
+  const expectedTopMerges = TOP_MERGES.map((range) => range.toUpperCase());
+  const expectedMergeRanges = [...expectedTopMerges, ...expectedModuleMerges];
+  const missingTopMerges = expectedTopMerges.filter((range) => !actualMergeRanges.includes(range));
+  const missingModuleMerges = expectedModuleMerges.filter((range) => !actualMergeRanges.includes(range));
+  const unexpectedMergeRanges = actualMergeRanges.filter((range) => !expectedMergeRanges.includes(range));
+  const invalidBodyMergeRanges = actualMergeRanges.filter(bodyMergeTouchesProtectedColumns);
+  if (missingTopMerges.length) {
+    errors.push(`顶部版式合并缺失：${missingTopMerges.join(",")}`);
+  }
+  if (missingModuleMerges.length) {
+    errors.push(`模块合并缺失：${missingModuleMerges.join(",")}`);
+  }
+  if (unexpectedMergeRanges.length) {
+    errors.push(`存在合同外合并区域：${unexpectedMergeRanges.join(",")}`);
+  }
+  if (invalidBodyMergeRanges.length) {
+    errors.push(`D:J 用例正文禁止合并：${invalidBodyMergeRanges.join(",")}`);
+  }
+  if (tableParts.length) {
+    errors.push(`工作簿禁止包含 Excel Table：${tableParts.join(",")}`);
+  }
+  const boundaryItems = assertBoundaryConfirmations(boundaryConfirmations, finalCases, readiness);
+  const topLayoutMatch = headerMatches
+    && titleMatches
+    && sourceNamesMatch
+    && missingTopMerges.length === 0;
+  const moduleMergesMatch = missingModuleMerges.length === 0
+    && unexpectedMergeRanges.length === 0
+    && invalidBodyMergeRanges.length === 0;
   return {
     schema_version: "1.0",
     status: errors.length ? "invalid" : "ok",
@@ -538,6 +818,14 @@ async function verifyExportedWorkbook(outputPath, finalCases, readiness) {
     header_order: header,
     values_match: errors.every((item) => !item.startsWith("A:J 回读不一致") && !item.startsWith("用例行数")),
     formulas_present: !errors.some((item) => item.startsWith("统计公式缺少")),
+    top_layout_match: topLayoutMatch,
+    module_merges_match: moduleMergesMatch,
+    module_merge_ranges: expectedModuleMerges,
+    actual_merge_ranges: actualMergeRanges,
+    unexpected_merge_ranges: unexpectedMergeRanges,
+    invalid_body_merge_ranges: invalidBodyMergeRanges,
+    no_excel_tables: tableParts.length === 0,
+    boundary_confirmation_count: boundaryItems.length,
     external_links_present: actual.flat().some((value) => /https?:\/\//i.test(value)),
     errors,
     formula_error_scan: formulaErrorText,
@@ -553,7 +841,9 @@ async function buildWorkbook(options) {
   const readiness = await readJson(path.join(runDir, "delivery_readiness.json"));
   const finalCases = await readJson(path.join(runDir, "final_cases.json"));
   const sourcePacket = await readJson(path.join(runDir, "source_packet.json"));
+  const boundaryConfirmations = await readJson(path.join(runDir, "pending_boundary_confirmations.json"));
   assertFinalCases(finalCases, readiness);
+  assertBoundaryConfirmations(boundaryConfirmations, finalCases, readiness);
   if (path.basename(readiness.output_filename) !== readiness.output_filename) {
     throw new Error("delivery_readiness.output_filename 不是安全文件名");
   }
@@ -565,7 +855,13 @@ async function buildWorkbook(options) {
   const previewPath = path.join(runDir, "workbook-preview.png");
   await renderWorkbook(workbook, previewPath, endRow);
   await exportWorkbook(workbook, outputPath, Boolean(options.overwrite));
-  const readback = await verifyExportedWorkbook(outputPath, finalCases, readiness);
+  const readback = await verifyExportedWorkbook(
+    outputPath,
+    finalCases,
+    readiness,
+    sourcePacket,
+    boundaryConfirmations,
+  );
   if (readback.external_links_present) {
     readback.status = "invalid";
     readback.errors.push("工作簿 A:J 中存在外部 URL");
