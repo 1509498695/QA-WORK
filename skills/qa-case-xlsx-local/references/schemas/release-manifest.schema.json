@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"release_manifest","type":"object","required":["schema_version","release_version","published_at","rule_count","index_sha256","file_sha256"]}

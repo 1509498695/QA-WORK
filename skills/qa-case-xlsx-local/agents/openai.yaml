@@ -1,0 +1,5 @@
+interface:
+  display_name: "qa-case-xlsx-local"
+  short_description: "仅读取本地策划案，生成可追溯的个人风格测试用例 Excel"
+  brand_color: "#86D3E5"
+  default_prompt: "Use $qa-case-xlsx-local to read my uploaded local planning files and create an audited local Excel test-case workbook."

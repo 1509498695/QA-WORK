@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "rule_index",
+  "type": "object",
+  "required": ["schema_version", "routes"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "routes": {"type": "object"}
+  }
+}

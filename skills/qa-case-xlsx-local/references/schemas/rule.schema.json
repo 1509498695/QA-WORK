@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"published_rule","type":"object","required":["rule_id","title","owner_dimension","owner_key","owner_file","rule_revision","status","trigger_conditions","required_checks","exclusions","evidence_refs"]}

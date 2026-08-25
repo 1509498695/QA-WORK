@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "routes": {
+    "business": {
+      "system": "business-system.json", "commercialization": "business-commercialization.json", "growth": "business-growth.json", "skill": "business-skill.json", "instance": "business-instance.json", "gameplay": "business-gameplay.json", "activity": "business-activity.json", "season": "business-season.json"
+    },
+    "object": {
+      "hero": "object-hero.json", "boss_monster": "object-boss-monster.json", "pet_companion": "object-pet-companion.json", "city_building": "object-city-building.json", "alliance_organization": "object-alliance-organization.json", "map_march": "object-map-march.json"
+    },
+    "horizontal": {
+      "ui_display": "horizontal-ui-display.json", "interaction_control": "horizontal-interaction-control.json", "notification_badge": "horizontal-notification-badge.json", "time_refresh": "horizontal-time-refresh.json", "state_transition": "horizontal-state-transition.json", "data_calculation": "horizontal-data-calculation.json", "resource_reward": "horizontal-resource-reward.json", "boundary_limit": "horizontal-boundary-limit.json", "storage_persistence": "horizontal-storage-persistence.json", "sync_consistency": "horizontal-sync-consistency.json", "exception_recovery": "horizontal-exception-recovery.json", "repeat_idempotency": "horizontal-repeat-idempotency.json", "permission_eligibility": "horizontal-permission-eligibility.json", "localization_compatibility": "horizontal-localization-compatibility.json", "onboarding_guidance": "horizontal-onboarding-guidance.json"
+    },
+    "style": {
+      "atomicity": "style-atomicity.json", "fields": "style-fields.json", "ordering_priority": "style-ordering-priority.json", "human_language_remarks": "style-human-language-remarks.json"
+    },
+    "project": {"cod": "project-cod.json"}
+  }
+}
