@@ -1,0 +1,10 @@
+# The Workspace Feishu plugin copies these canonical package trees byte-for-byte
+# and records SHA-256 hashes for the packaged runtime. Keep their checkout bytes
+# stable when Windows core.autocrlf is enabled.
+/platform/capability-contracts/src/capability_contracts/** text eol=lf
+/providers/feishu/protocol/src/feishu_protocol/** text eol=lf
+/providers/feishu/mcp-server/src/feishu_provider/** text eol=lf
+
+/plugins/workspace-feishu/runtime.template.toml text eol=lf
+/plugins/workspace-feishu/runtime/** text eol=lf
+/plugins/workspace-feishu/scripts/build_runtime.ps1 text eol=lf

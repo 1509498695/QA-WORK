@@ -136,7 +136,7 @@ try {
         sources = $sourceManifest
         files = $fileManifest
     }
-    $manifestJson = $manifest | ConvertTo-Json -Depth 8
+    $manifestJson = ($manifest | ConvertTo-Json -Depth 8).Replace("`r`n", "`n")
     [System.IO.File]::WriteAllText(
         (Join-Path $stagedRuntime 'BUILD-MANIFEST.json'),
         $manifestJson + "`n",
