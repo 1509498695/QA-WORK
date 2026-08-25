@@ -13,15 +13,11 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from capability_contracts.errors import CapabilityError, CapabilityErrorCode
-from capability_contracts.locator import classify_locator
 from capability_contracts.models import (
     OperationEvidence,
     OperationStatus,
-    ResourceLocator,
-    ResourceType,
-    TargetKind,
 )
-from feishu_auth_service.leases import (
+from feishu_protocol import (
     DOCX_MEDIA_READ_CAPABILITY,
     DOCX_READ_CAPABILITY,
     WIKI_NODE_READ_CAPABILITY,
@@ -37,6 +33,12 @@ from feishu_provider.common import (
     required_text as _required_text,
 )
 from feishu_provider.lease_client import LeaseClient, LoopbackLeaseClient
+from feishu_provider.locator import (
+    ResourceLocator,
+    ResourceType,
+    TargetKind,
+    classify_locator,
+)
 
 
 DOCUMENT_ENDPOINT = "/open-apis/docx/v1/documents/{document_id}"

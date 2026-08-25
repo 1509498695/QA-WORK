@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "plugin": "workspace-feishu",
+  "runtime_version": "0.4.1",
+  "sources": [
+    {
+      "distribution": "qa-skillhub-capability-contracts",
+      "version": "0.4.1",
+      "project": "platform/capability-contracts/pyproject.toml",
+      "package": "platform/capability-contracts/src/capability_contracts"
+    },
+    {
+      "distribution": "workspace-feishu-protocol",
+      "version": "0.4.1",
+      "project": "providers/feishu/protocol/pyproject.toml",
+      "package": "providers/feishu/protocol/src/feishu_protocol"
+    },
+    {
+      "distribution": "workspace-feishu-mcp-server",
+      "version": "0.4.1",
+      "project": "providers/feishu/mcp-server/pyproject.toml",
+      "package": "providers/feishu/mcp-server/src/feishu_provider"
+    }
+  ],
+  "files": [
+    {
+      "path": "pyproject.toml",
+      "sha256": "2554cd942a2d8bf2ac557b034bb4aae4290ccb10aee17c297e99399f3576b516"
+    },
+    {
+      "path": "src/capability_contracts/__init__.py",
+      "sha256": "81ea7acf81b04a2a6852189c8c7cf61793f30bf70e587b292c4391e8407b1c66"
+    },
+    {
+      "path": "src/capability_contracts/errors.py",
+      "sha256": "18214d56e7a637c110c9e55b288a8f31f629a4ecfa8b97d02f66f4e5c6c163e1"
+    },
+    {
+      "path": "src/capability_contracts/models.py",
+      "sha256": "234c81cead497038d74d67e81dfe00b4d46835500fdc61e1dd6847071395c062"
+    },
+    {
+      "path": "src/feishu_protocol/__init__.py",
+      "sha256": "bf768c398656321b061d6104553d56d4a1c6a6766d46bf6791c3e7fbfe3a23d1"
+    },
+    {
+      "path": "src/feishu_protocol/capabilities.py",
+      "sha256": "a72a0372e271c8b1e3ffec2f9cff6aac10f6dded32ae8c3c31a85407b344ee9e"
+    },
+    {
+      "path": "src/feishu_protocol/client.py",
+      "sha256": "288c6d3b8c221691d9331fdc837972abd84c1ce11803d28b211f7dddd6686e52"
+    },
+    {
+      "path": "src/feishu_protocol/leases.py",
+      "sha256": "bfae1e7e6011d89c6e2c5d11e47db93d86d013d10fb615645342b41f93867670"
+    },
+    {
+      "path": "src/feishu_provider/__init__.py",
+      "sha256": "f8fbb0d85741caa06a39fb815f2c9ec8d26f7561e77b56668ee96c78a966a58e"
+    },
+    {
+      "path": "src/feishu_provider/common.py",
+      "sha256": "5fba7c193cb14d208f4b41a03c75598c228bb8d43cd62cac333b84fb0fd6938a"
+    },
+    {
+      "path": "src/feishu_provider/docx.py",
+      "sha256": "a45701a078bfd17382c1b47711d51e51df3583ae6f4c6af89b26cd5d581b279d"
+    },
+    {
+      "path": "src/feishu_provider/lease_client.py",
+      "sha256": "e8d3edfa44cc282c6734651fc281a7ebe3310b8249de6414880c15e878113320"
+    },
+    {
+      "path": "src/feishu_provider/local_binding.py",
+      "sha256": "b833e11b133220604e4272230aed4ac8faba893e2429bfd578e2b84e2d15bb3c"
+    },
+    {
+      "path": "src/feishu_provider/locator.py",
+      "sha256": "4c47754ca9c4f9b181dae01a5b9e3709bfbf271dd3a870105721ee8a91749e7a"
+    },
+    {
+      "path": "src/feishu_provider/mcp_server.py",
+      "sha256": "cbb4ec9afdb35e690dede86937c0cef9823a1778587f7169f23958d29b0828ee"
+    },
+    {
+      "path": "src/feishu_provider/sheets.py",
+      "sha256": "2446c23094a5a55dc2f67f3c76d74edefc178dd206baa5ffa919a52c92903dca"
+    }
+  ]
+}

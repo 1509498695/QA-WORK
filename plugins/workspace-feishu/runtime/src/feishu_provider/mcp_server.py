@@ -9,10 +9,14 @@ from capability_contracts.errors import (
     CapabilityErrorCode,
     CapabilityFailure,
 )
-from capability_contracts.locator import classify_locator
-from capability_contracts.models import CapabilityManifest, ResourceLocator, ResourceType
+from capability_contracts.models import CapabilityManifest
 from feishu_provider.docx import DocxReadResult, DocxReader, FeishuDocxClient
 from feishu_provider.lease_client import DEFAULT_AUTHORIZATION_URL
+from feishu_provider.locator import (
+    ResourceLocator,
+    ResourceType,
+    classify_locator,
+)
 from feishu_provider.sheets import FeishuSheetsClient, SheetsReader, SheetsReadResult
 
 

@@ -28,5 +28,5 @@ description: 处理独立 Workspace Feishu Provider 的本机 OAuth 授权、重
 ## 独立性
 
 - 不调用或复用 `lg-feishu`。
-- 本插件只依赖 Workspace Capabilities 本机授权服务、Windows 当前用户的 DPAPI Profile 和任务级短租约。
+- 本插件只依赖 QA Skill Hub 的本机授权服务、Windows 当前用户的 DPAPI Profile 和任务级短租约。
 - 本 Skill 不负责修改飞书开放平台配置；缺少 Scope 时说明所需只读能力，并在权限发布后重新授权。

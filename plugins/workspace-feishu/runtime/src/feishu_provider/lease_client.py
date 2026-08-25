@@ -8,8 +8,8 @@ import httpx
 from pydantic import ValidationError
 
 from capability_contracts.errors import CapabilityError, CapabilityErrorCode
-from feishu_auth_service.binding import BindingError, LocalBindingStore, LocalClientIdentity
-from feishu_auth_service.leases import LeaseDelivery
+from feishu_protocol import LeaseDelivery, LocalClientIdentity
+from feishu_provider.local_binding import LocalClientIdentityStore, LocalIdentityError
 
 
 DEFAULT_CONTROL_PLANE_ORIGIN = "http://127.0.0.1:3000"
@@ -74,8 +74,8 @@ class LoopbackLeaseClient:
     @classmethod
     def default(cls) -> LoopbackLeaseClient:
         try:
-            identity = LocalBindingStore.default().load_client_identity()
-        except BindingError as exc:
+            identity = LocalClientIdentityStore.default().load()
+        except LocalIdentityError as exc:
             raise CapabilityError(
                 CapabilityErrorCode.CONFIGURATION_REQUIRED,
                 "The Feishu Provider deployment binding is not configured.",

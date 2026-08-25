@@ -5,33 +5,9 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class TargetKind(StrEnum):
-    LOCAL = "local"
-    FEISHU = "feishu"
-    UNKNOWN = "unknown"
-
-
-class ResourceType(StrEnum):
-    LOCAL_FILE = "local_file"
-    FEISHU_DOCX = "feishu_docx"
-    FEISHU_WIKI = "feishu_wiki"
-    FEISHU_SHEET = "feishu_sheet"
-    UNKNOWN = "unknown"
-
-
 class OperationStatus(StrEnum):
     OK = "ok"
     RETRIEVAL_INCOMPLETE = "retrieval_incomplete"
-
-
-class ResourceLocator(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    target: TargetKind
-    resource_type: ResourceType
-    original: str
-    resource_id: str | None = None
-    canonical_url: str | None = None
 
 
 class OperationEvidence(BaseModel):
@@ -51,6 +27,6 @@ class CapabilityManifest(BaseModel):
     provider_version: str
     contract_versions: tuple[str, ...]
     operations: tuple[str, ...]
-    resource_types: tuple[ResourceType, ...]
+    resource_types: tuple[str, ...]
     development_only: bool = True
     notes: tuple[str, ...] = Field(default=())

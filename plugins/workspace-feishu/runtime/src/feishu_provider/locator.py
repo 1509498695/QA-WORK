@@ -1,10 +1,36 @@
 from __future__ import annotations
 
 import re
+from enum import StrEnum
 from urllib.parse import urlsplit
 
+from pydantic import BaseModel, ConfigDict
+
 from capability_contracts.errors import CapabilityError, CapabilityErrorCode
-from capability_contracts.models import ResourceLocator, ResourceType, TargetKind
+
+
+class TargetKind(StrEnum):
+    LOCAL = "local"
+    FEISHU = "feishu"
+    UNKNOWN = "unknown"
+
+
+class ResourceType(StrEnum):
+    LOCAL_FILE = "local_file"
+    FEISHU_DOCX = "feishu_docx"
+    FEISHU_WIKI = "feishu_wiki"
+    FEISHU_SHEET = "feishu_sheet"
+    UNKNOWN = "unknown"
+
+
+class ResourceLocator(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    target: TargetKind
+    resource_type: ResourceType
+    original: str
+    resource_id: str | None = None
+    canonical_url: str | None = None
 
 
 _WINDOWS_PATH = re.compile(r"^(?:[A-Za-z]:[\\/]|\\\\)")
