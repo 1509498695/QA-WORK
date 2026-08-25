@@ -89,11 +89,18 @@ Invoke-Checked -Command $uv -Arguments @(
     'run', '--with', 'pyyaml', $pluginValidator,
     (Join-Path $repositoryRoot 'plugins\workspace-feishu')
 ) -WorkingDirectory $repositoryRoot -Label 'Plugin manifest validation'
-Invoke-Checked -Command $uv -Arguments @(
-    'run', '--project', 'plugins/workspace-feishu/runtime', '--locked',
-    'python', '-c',
-    'import asyncio; from feishu_provider.mcp_server import build_server; assert len(asyncio.run(build_server().list_tools())) == 4'
-) -WorkingDirectory $repositoryRoot -Label 'Plugin runtime smoke test'
+$previousBytecodeSetting = $env:PYTHONDONTWRITEBYTECODE
+try {
+    $env:PYTHONDONTWRITEBYTECODE = '1'
+    Invoke-Checked -Command $uv -Arguments @(
+        'run', '--isolated', '--project', 'plugins/workspace-feishu/runtime', '--locked',
+        'python', '-c',
+        'import asyncio; from feishu_provider.mcp_server import build_server; assert len(asyncio.run(build_server().list_tools())) == 4'
+    ) -WorkingDirectory $repositoryRoot -Label 'Plugin runtime smoke test'
+}
+finally {
+    $env:PYTHONDONTWRITEBYTECODE = $previousBytecodeSetting
+}
 
 & (Join-Path $repositoryRoot 'scripts\install-personal-skills.ps1') -Check
 if ($LASTEXITCODE -ne 0) {

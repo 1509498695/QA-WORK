@@ -147,6 +147,20 @@ try {
         if (-not (Test-Path -LiteralPath $runtimeRoot -PathType Container)) {
             throw "Plugin runtime is missing: $runtimeRoot"
         }
+        $runtimeState = @()
+        $runtimeEnvironment = Join-Path $runtimeRoot '.venv'
+        if (Test-Path -LiteralPath $runtimeEnvironment) {
+            $runtimeState += '.venv'
+        }
+        $runtimeState += @(
+            Get-ChildItem -LiteralPath (Join-Path $runtimeRoot 'src') -Directory -Filter '__pycache__' -Recurse -ErrorAction SilentlyContinue |
+                ForEach-Object {
+                    [System.IO.Path]::GetRelativePath($runtimeRoot, $_.FullName).Replace('\', '/')
+                }
+        )
+        if ($runtimeState.Count -gt 0) {
+            throw "Plugin source runtime contains local execution state: $($runtimeState -join ', ')"
+        }
         $expected = Get-RelativeFileRecords -Root $stagedRuntime
         $actual = Get-RelativeFileRecords -Root $runtimeRoot -IgnoreRuntimeState
         $pathDifference = Compare-Object -ReferenceObject $expected.Path -DifferenceObject $actual.Path
@@ -180,6 +194,17 @@ try {
         throw "Refusing to replace unexpected runtime source path: $targetSource"
     }
     [System.IO.Directory]::CreateDirectory($validatedRuntime) | Out-Null
+    $runtimeEnvironment = Join-Path $validatedRuntime '.venv'
+    $expectedRuntimeEnvironment = [System.IO.Path]::GetFullPath(
+        (Join-Path $pluginRoot 'runtime\.venv')
+    )
+    if (Test-Path -LiteralPath $runtimeEnvironment -PathType Container) {
+        $validatedEnvironment = Resolve-ContainedPath -Path $runtimeEnvironment -Parent $validatedRuntime -Label 'Runtime environment'
+        if ([System.IO.Path]::GetFullPath($validatedEnvironment) -ne $expectedRuntimeEnvironment) {
+            throw "Refusing to remove unexpected runtime environment: $validatedEnvironment"
+        }
+        Remove-Item -LiteralPath $validatedEnvironment -Recurse -Force
+    }
     if (Test-Path -LiteralPath $targetSource -PathType Container) {
         Remove-Item -LiteralPath $targetSource -Recurse -Force
     }
