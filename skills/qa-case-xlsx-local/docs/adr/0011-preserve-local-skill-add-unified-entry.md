@@ -14,6 +14,7 @@ date: 2026-08-19
 
 ## Consequences
 
-- `qa-case-xlsx-unified` 的首个实现由本仓库持有，在本仓库内复用用例生成核心；`qa-case-xlsx-local` 仍保持独立入口和纯本地合同。
-- 统一入口只通过已安装 Workspace Feishu Plugin 的公开 MCP 合同读取飞书，不跨仓导入 `D:\project\work` 的 Provider 私有源码、运行时或本机路径。
-- 将业务 Skill 迁入其他仓库必须另行确认并提供身份、历史和兼容测试保留方案；本 ADR 不授权复制或移动现有实现。
+- `qa-case-xlsx-unified` 如进入实现，必须使用独立的 `skills/qa-case-xlsx-unified/` 目录；当前迁移不创建该目录或入口。
+- 只有形成第二个真实消费者、稳定合同和独立测试后，才另行把可复用生成核心抽取到 `packages/<package-name>/`；统一入口不得跨目录导入 `qa-case-xlsx-local` 的私有源码。
+- 统一入口只通过已安装 Workspace Feishu Plugin 的公开 MCP 合同读取飞书；即使 Provider 位于同一仓库，也不得导入其私有源码、运行时、凭证或本机路径。
+- `qa-case-xlsx-local` 的目录与 Git 归属迁移由 QA Skill Hub ADR-0035 授权并保留完整历史；本 ADR 仍只决定两个入口的身份和权限边界。

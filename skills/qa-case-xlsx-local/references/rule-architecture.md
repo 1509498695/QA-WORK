@@ -4,7 +4,7 @@
 
 - 实现状态：`implemented_local_verified`。
 - 目标架构：独立、本地、离线优先。
-- 源目录：`D:\project\qa-case-xlsx`。
+- 源目录：`D:\project\work\skills\qa-case-xlsx-local`。
 - 运行依赖：Codex bundled 文档/PDF/表格运行时；不依赖任何业务工作区。
 - 正式规则包：50 条，发布版本 `20260814.2`，稳定 ID，不自动从历史用例学习。
 
@@ -236,4 +236,4 @@ CoD/SAMO 正式项目规则只在当前源包出现服务器/地区/平台、英
 - 规则内容变化必须提高 `rule_revision`、给出原因并重建清单。
 - 规则新增/删除会改变 50 条契约，必须重新与用户确认。
 - 不在运行过程中自动写回正式规则。
-- 本地 Git 只用于版本化独立源目录；没有用户明确授权时不 commit、不配置 remote、不 push。
+- 源码由 `D:\project\work` 的 QA Skill Hub 根仓库版本化；没有用户明确授权时不 push，不以远端名称改变 Skill 身份。

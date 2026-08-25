@@ -1,6 +1,6 @@
 # ADR-0001：qa-case-xlsx 独立本地交付
 
-- 状态：Accepted；由 ADR-0006 恢复并强化纯本地边界
+- 状态：Accepted；由 ADR-0006 恢复并强化纯本地边界；目录与 Git 归属由 QA Skill Hub ADR-0035 接管
 - 日期：2026-08-14
 - 决策人：用户与 Codex
 
@@ -10,13 +10,13 @@
 
 ## 决策
 
-1. 将 `D:\project\qa-case-xlsx` 作为唯一独立源目录，`SKILL.md` 直接位于根目录。
+1. 将 `D:\project\work\skills\qa-case-xlsx-local` 作为唯一活动源目录，`SKILL.md` 直接位于该 Skill 根目录；原 `D:\project\qa-case-xlsx` 只保留为迁移恢复副本。
 2. 内联 `qa-case` 的通用蓝图、GR-01～GR-08 完整性矩阵、原子拆分、需求追溯、项目路由和人话化能力。
 3. 保留 50 条已发布个人规则、稳定 ID、Schema、索引、哈希发布清单和必要模块快照；删除候选 JSONL、在线证据索引、历史规则目录和自动学习。
 4. 输入仅限用户本次上传或明确指定的本地 DOCX/PDF/XLSX/Markdown/TXT/PNG/JPG；外链只登记，不访问。
 5. 输出为离线模板生成的固定 A:J 本地工作簿和 `audit/` 审计目录；不读写飞书，不调用 Jira、Code Ask、MasterGo、KB 或 QAWORK 流程。
 6. 来源不完整或存在 pending/冲突时生成“待确认草稿”；没有 confirmed 业务事实时不生成工作簿；只有 `pending=0` 才使用正式文件名。
-7. 独立源目录初始化本地 Git，但不配置 remote、不 commit、不 push。通过全部验收后，先备份旧安装包，再同步到用户级 Skill 目录并校验逐文件哈希。
+7. 源码随 QA Skill Hub 根仓库版本化；通过全部验收后切换用户级 Skill Junction 并校验逐文件哈希。没有用户明确授权时不 push，也不删除旧恢复副本。
 
 ## 影响
 

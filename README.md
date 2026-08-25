@@ -1,9 +1,22 @@
-# Workspace Capabilities / Feishu local-dev-v0
+# QA Skill Hub
 
-这是公共能力工作空间的首个可运行纵切：一个完全独立于 `lg-feishu` 的 Feishu Provider、授权控制面、公共契约包和可安装 Codex Plugin。当前实现只面向本机单用户开发验证，不宣称已经具备正式中央部署、多人接入或写入能力。
+`QA Skill Hub`（稳定 ID：`qa-skillhub`）是位于 `D:\project\work` 的单一 Git 仓库，统一版本化业务 Skills、公共能力契约、彼此隔离的外部系统 Provider 及其 Codex Plugins。`D:\project` 只是多个项目的共同父目录，不是本项目边界。
+
+当前公共能力实现仍是一个完全独立于 `lg-feishu` 的 Feishu `local-dev-v0` 纵切，只面向本机单用户开发验证，不宣称已经具备正式中央部署、多人接入或写入能力。
+
+## 仓库结构
+
+- `skills/<skill-name>/`：一个具名业务 Skill 一个目录；当前包含纯本地 `qa-case-xlsx-local`。
+- `plugins/<provider>/`：按外部系统独立安装和发布的 Codex Provider Plugin；当前包含 `workspace-feishu`。
+- `src/`：当前公共契约、授权服务和 Feishu Provider 源码；本次迁移不重排。
+- `packages/`：未来稳定共享业务代码的位置；只有形成真实复用合同后才创建，不预建空壳。
+- `docs/` 与 `platform/`：跨上下文架构决策、实施计划和公共能力领域语言。
+
+业务 Skill 即使同时编排飞书、SVN 等多种能力，也仍归入自己的 `skills/<skill-name>/`；它只消费各 Provider Plugin 的公开合同，不导入 Provider 私有源码、凭证或运行时。
 
 ## 当前已实现
 
+- 完整迁入 `skills/qa-case-xlsx-local` 的纯本地业务 Skill；其本地来源、本地 Excel 交付和无网络权限边界保持不变。
 - Provider 专用飞书企业自建应用、DPAPI 部署绑定和零输入日常启动。
 - OAuth 授权码流程、单次 `state`、准入租户校验和用户身份回读。
 - DPAPI 加密的 Provider Profile；只持久化 Refresh Token 密文，Access Token 仅驻进程内存。
@@ -146,6 +159,6 @@ uv run feishu-auth preflight
 - 将正文、图片、附件和表格快照固化到调用方拥有的任务隔离暂存区；当前 v0.4 只返回内存快照，不宣称已经形成持久任务包。
 - 用户通过对话选择飞书或本地目标，以及所有本地写入前的确定内容确认。
 - 正式 Marketplace 发布流水线、插件自动升级和跨机器安装验证。
-- SVN 等新增 Provider 与业务 Skill 迁移。
+- SVN 等新增 Provider、更多业务 Skill，以及经过独立设计的共享业务包。
 
 这些能力会继续复用 `capability_contracts` 的资源定位、能力声明、结构化状态和证据语义，但各 Provider 仍独立拥有配置、身份、MCP 和远端协议。
