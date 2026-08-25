@@ -2,6 +2,15 @@ version = 1
 revision = 3
 requires-python = "==3.13.*"
 
+[manifest]
+members = [
+    "qa-skillhub-capability-contracts",
+    "qa-skillhub-workspace",
+    "workspace-feishu-auth-service",
+    "workspace-feishu-mcp-server",
+    "workspace-feishu-protocol",
+]
+
 [[package]]
 name = "annotated-doc"
 version = "0.0.5"
@@ -415,6 +424,44 @@ wheels = [
 ]
 
 [[package]]
+name = "qa-skillhub-capability-contracts"
+version = "0.4.1"
+source = { editable = "platform/capability-contracts" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.11,<3" }]
+
+[[package]]
+name = "qa-skillhub-workspace"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "qa-skillhub-capability-contracts" },
+    { name = "workspace-feishu-auth-service" },
+    { name = "workspace-feishu-mcp-server" },
+    { name = "workspace-feishu-protocol" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "qa-skillhub-capability-contracts", editable = "platform/capability-contracts" },
+    { name = "workspace-feishu-auth-service", editable = "providers/feishu/auth-service" },
+    { name = "workspace-feishu-mcp-server", editable = "providers/feishu/mcp-server" },
+    { name = "workspace-feishu-protocol", editable = "providers/feishu/protocol" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.4,<9" }]
+
+[[package]]
 name = "referencing"
 version = "0.37.0"
 source = { registry = "https://pypi.org/simple" }
@@ -510,32 +557,58 @@ wheels = [
 ]
 
 [[package]]
-name = "workspace-feishu-auth"
+name = "workspace-feishu-auth-service"
 version = "0.4.1"
-source = { editable = "." }
+source = { editable = "providers/feishu/auth-service" }
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
-    { name = "mcp" },
     { name = "pydantic" },
     { name = "python-multipart" },
+    { name = "qa-skillhub-capability-contracts" },
     { name = "uvicorn" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
+    { name = "workspace-feishu-protocol" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.116,<1" },
     { name = "httpx", specifier = ">=0.28,<1" },
-    { name = "mcp", specifier = ">=1.12.4,<2" },
     { name = "pydantic", specifier = ">=2.11,<3" },
     { name = "python-multipart", specifier = ">=0.0.20,<1" },
+    { name = "qa-skillhub-capability-contracts", editable = "platform/capability-contracts" },
     { name = "uvicorn", specifier = ">=0.35,<1" },
+    { name = "workspace-feishu-protocol", editable = "providers/feishu/protocol" },
 ]
 
-[package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8.4,<9" }]
+[[package]]
+name = "workspace-feishu-mcp-server"
+version = "0.4.1"
+source = { editable = "providers/feishu/mcp-server" }
+dependencies = [
+    { name = "httpx" },
+    { name = "mcp" },
+    { name = "pydantic" },
+    { name = "qa-skillhub-capability-contracts" },
+    { name = "workspace-feishu-protocol" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28,<1" },
+    { name = "mcp", specifier = ">=1.12.4,<2" },
+    { name = "pydantic", specifier = ">=2.11,<3" },
+    { name = "qa-skillhub-capability-contracts", editable = "platform/capability-contracts" },
+    { name = "workspace-feishu-protocol", editable = "providers/feishu/protocol" },
+]
+
+[[package]]
+name = "workspace-feishu-protocol"
+version = "0.4.1"
+source = { editable = "providers/feishu/protocol" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.11,<3" }]
