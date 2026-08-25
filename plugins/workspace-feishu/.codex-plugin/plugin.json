@@ -1,0 +1,36 @@
+{
+  "name": "workspace-feishu",
+  "version": "0.4.1",
+  "description": "独立的飞书 Docx、Wiki 与 Sheets 只读公共能力，使用本机 OAuth 中央服务且不复用 lg-feishu。",
+  "author": {
+    "name": "Workspace Capabilities"
+  },
+  "license": "UNLICENSED",
+  "keywords": [
+    "feishu",
+    "docx",
+    "wiki",
+    "sheets",
+    "mcp",
+    "workspace-capabilities"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Workspace Feishu",
+    "shortDescription": "独立读取飞书 Docx、Wiki 与 Sheets。",
+    "longDescription": "Workspace Feishu 将自有 Provider、稳定读取合同和本机 OAuth 恢复入口打包为公共插件。首版本机运行，自动选择唯一已授权 Profile；不读取或复用 lg-feishu 的凭据、工具、Profile 或运行时，也不提供写入能力。",
+    "developerName": "Workspace Capabilities",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Interactive"
+    ],
+    "defaultPrompt": [
+      "使用 Workspace Feishu 读取这个飞书文档，并报告完整性证据。",
+      "使用 Workspace Feishu 读取这个飞书电子表格的全部工作表。",
+      "检查 Workspace Feishu 的授权状态；如需授权，给我可点击的网页链接。"
+    ],
+    "brandColor": "#175CD3"
+  },
+  "mcpServers": "./.mcp.json"
+}
