@@ -16,3 +16,6 @@
 *.png binary
 *.jpg binary
 *.jpeg binary
+
+# The published rule manifest hashes exact file bytes; Git must not rewrite them.
+references/rules/*.json -text -eol -diff
