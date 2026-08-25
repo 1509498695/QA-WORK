@@ -6,11 +6,15 @@
 
 ## 仓库结构
 
-- `skills/<skill-name>/`：一个具名业务 Skill 一个目录；当前包含纯本地 `qa-case-xlsx-local`。
-- `plugins/<provider>/`：按外部系统独立安装和发布的 Codex Provider Plugin；当前包含 `workspace-feishu`。
-- `src/`：当前公共契约、授权服务和 Feishu Provider 源码；本次迁移不重排。
-- `packages/`：未来稳定共享业务代码的位置；只有形成真实复用合同后才创建，不预建空壳。
-- `docs/` 与 `platform/`：跨上下文架构决策、实施计划和公共能力领域语言。
+- `platform/capability-contracts/`：Provider 中立的状态、证据、能力声明和安全错误合同。
+- `providers/feishu/protocol/`：授权控制面与 MCP Server 共享的 Feishu 私有通信模型。
+- `providers/feishu/auth-service/`：OAuth、部署绑定、Profile 和短期租约签发。
+- `providers/feishu/mcp-server/`：飞书 Docx、Wiki 与 Sheets 只读 MCP；不导入授权服务实现。
+- `skills/<skill-name>/`：业务 Skill 唯一源码；当前包含纯本地 `qa-case-xlsx-local`。
+- `plugins/<provider>/`：可独立安装的 Codex Provider Plugin；当前包含 `workspace-feishu`。
+- `docs/adr/` 与各 `CONTEXT.md`：架构决策及按领域拆分的统一语言。
+
+根 `pyproject.toml` 是不发布的 virtual uv workspace；四个 Python 组件各自拥有包名、版本、测试和构建配置，开发态共享根 `uv.lock`。业务 Skill 使用 Codex bundled runtime，不加入 Python workspace。
 
 业务 Skill 即使同时编排飞书、SVN 等多种能力，也仍归入自己的 `skills/<skill-name>/`；它只消费各 Provider Plugin 的公开合同，不导入 Provider 私有源码、凭证或运行时。
 
@@ -144,9 +148,11 @@ Sheets 安全上限为最多 100 个工作表、每表 5,000 行与 500 列、�
 
 ```powershell
 uv run pytest
-uv run python -m compileall -q src tests
+uv run python -m compileall -q platform/capability-contracts/src providers/feishu
 uv lock --check
-uv run feishu-auth preflight
+.\scripts\install-personal-skills.ps1 -Check
+.\scripts\verify-repo.ps1
+uv run --package workspace-feishu-auth-service --locked feishu-auth preflight
 ```
 
 `preflight` 不输出 App Secret、Refresh Token、Access Token 或本机客户端 Secret。
@@ -161,4 +167,4 @@ uv run feishu-auth preflight
 - 正式 Marketplace 发布流水线、插件自动升级和跨机器安装验证。
 - SVN 等新增 Provider、更多业务 Skill，以及经过独立设计的共享业务包。
 
-这些能力会继续复用 `capability_contracts` 的资源定位、能力声明、结构化状态和证据语义，但各 Provider 仍独立拥有配置、身份、MCP 和远端协议。
+这些能力会继续复用 `capability_contracts` 的能力声明、结构化状态、证据和安全错误语义；资源定位、资源类型、身份、MCP 和远端协议由各 Provider 独立拥有。

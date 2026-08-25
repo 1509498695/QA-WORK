@@ -11,6 +11,8 @@
 - 只有两个及以上业务 Skill 已出现真实、稳定的代码复用需求时，才另行设计 `packages/<package-name>/`；不得用跨目录相对导入或薄壳提前模拟共享包。
 - 新 Skill 必须先明确身份、权限、输入输出、证据门禁、测试和发现方式，不能通过另一个 Skill 静默转发。
 
+仓库目录是业务 Skill 的唯一源码真源。当前用户的个人发现入口使用同名 Junction 指向该目录，不复制源码，也不在仓库 `.agents/skills/` 重复暴露同一 Skill。可运行 `scripts/install-personal-skills.ps1 -Check` 校验当前绑定，或在入口缺失时不带 `-Check` 创建它；脚本遇到同名冲突路径会停止，不会覆盖。
+
 ## 当前成员
 
 - [`qa-case-xlsx-local`](./qa-case-xlsx-local/)：只读取本地策划案并生成本地 Excel 测试用例；不读取或写入飞书，不依赖 QAWORK、Jira、Code Ask 或网络。

@@ -6,7 +6,7 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 
 Push-Location -LiteralPath $projectRoot
 try {
-    $preflightLines = & uv run feishu-auth preflight
+    $preflightLines = & uv run --package workspace-feishu-auth-service --locked feishu-auth preflight
     $preflightExitCode = $LASTEXITCODE
     if ($preflightExitCode -ne 0) {
         throw 'Feishu Provider deployment binding or Profile store is not ready.'
@@ -31,7 +31,7 @@ try {
         throw 'Start scripts\run-local-auth.ps1 before the Feishu Provider MCP.'
     }
 
-    & uv run feishu-provider
+    & uv run --package workspace-feishu-mcp-server --locked feishu-provider
     if ($LASTEXITCODE -ne 0) {
         throw "Feishu Provider MCP exited with code $LASTEXITCODE."
     }

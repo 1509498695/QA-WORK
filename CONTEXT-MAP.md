@@ -2,18 +2,18 @@
 
 ## Contexts
 
-- [公共能力平台](./platform/CONTEXT.md) — 定义公共能力契约，并治理彼此隔离的外部系统 Provider
-- [qa-case-xlsx-local](./skills/qa-case-xlsx-local/CONTEXT.md) — 只读取本地来源并交付本地 Excel 的独立业务 Skill
+- [公共能力](./platform/CONTEXT.md) — 定义业务 Skill 与外部系统 Provider 共享的中立操作、状态和证据语言。
+- [Feishu Provider](./providers/feishu/CONTEXT.md) — 定义飞书身份、授权、租约和只读资源语义。
+- [qa-case-xlsx-local](./skills/qa-case-xlsx-local/CONTEXT.md) — 定义本地策划案、本地测试用例和 Excel 审计交付。
 
 ## Relationships
 
-- `D:\project\work` 是 `QA Skill Hub`（`qa-skillhub`）的单一 Git 根；`D:\project` 只是其他项目共用的父目录。
-- 每个业务 Skill 在 `skills/<skill-name>/` 内保留自己的领域语言、流程、证据模型、测试和交付格式。
-- 业务 Skill 需要飞书、SVN 等外部能力时，只通过对应 Provider Plugin 的公开契约消费；同仓目录邻近不授权导入 Provider 私有实现。
-- `qa-case-xlsx-local` 是纯本地业务 Skill，不消费 Workspace Feishu 或其他网络 Provider。
-- 公共能力平台不得依赖任何业务 Skill 的流程、证据模型或交付格式。
-- Provider Plugin 内的指导 Skills 属于 Provider 包装，不是业务 Skill。
+- Feishu Provider 实现公共能力契约，同时独立拥有飞书资源类型、定位规则和私有授权协议。
+- Feishu 私有协议只在授权控制面与 MCP Server 之间使用，不对业务 Skill 构成公共合同。
+- 业务 Skill 只能消费 Provider 的公开语义操作，不导入 Provider 私有源码、身份或协议。
+- `qa-case-xlsx-local` 当前保持纯本地边界，不消费 Feishu Provider 或其他网络 Provider。
+- 公共能力上下文不依赖任何业务 Skill 的来源模型、规则、用例字段或交付格式。
 
 ## Reference Assessments
 
-- [QAWORK 架构参考边界](./docs/reference/qawork-architecture-reference.md) — 记录可借鉴的合同模式及明确禁止复制的业务和 Provider 依赖
+- [QAWORK 架构参考边界](./docs/reference/qawork-architecture-reference.md) — 记录可借鉴的合同模式和明确禁止复制的依赖。

@@ -5,6 +5,8 @@ date: 2026-08-25
 
 # 采用 QA Skill Hub 单仓结构
 
+本 ADR 确立单仓身份与首次迁移边界；迁移后的 Python 组件布局由 ADR-0036、ADR-0037 与 ADR-0040 继续细化。
+
 项目显示名确定为 `QA Skill Hub`，稳定 ID 为 `qa-skillhub`，并以 `D:\project\work` 作为唯一 Git 根。`D:\project` 只是多个无关项目的共同父目录，不属于本项目。
 
 业务 Skills 统一放在 `skills/<skill-name>/`，一个具名 Skill 一个目录；外部系统 Provider 的 Codex 包装继续放在 `plugins/<provider>/`，当前 Feishu Provider 源码继续保留在 `src/capability_contracts`、`src/feishu_auth_service` 和 `src/feishu_provider`。业务 Skill 即使组合飞书、SVN 等多个 Provider，也仍由自己的业务目录持有，并且只能消费 Provider 的公开合同。
