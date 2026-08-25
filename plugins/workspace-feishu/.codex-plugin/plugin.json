@@ -1,6 +1,6 @@
 {
   "name": "workspace-feishu",
-  "version": "0.4.1+codex.20260825065558",
+  "version": "0.4.1+codex.20260825070727",
   "description": "\u72ec\u7acb\u7684\u98de\u4e66 Docx\u3001Wiki \u4e0e Sheets \u53ea\u8bfb\u516c\u5171\u80fd\u529b\uff0c\u4f7f\u7528\u672c\u673a OAuth \u4e2d\u592e\u670d\u52a1\u4e14\u4e0d\u590d\u7528 lg-feishu\u3002",
   "author": {
     "name": "QA Skill Hub"
