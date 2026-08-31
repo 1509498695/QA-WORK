@@ -16,6 +16,7 @@ from enum import StrEnum
 from fastapi import BackgroundTasks, FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from feishu_auth_service.admin_styles import CONTROL_ROOM_STYLES as _CONTROL_ROOM_STYLES
 from feishu_auth_service.binding import (
     BindingError,
     BindingSummary,
@@ -581,28 +582,40 @@ def _portal_page(summary: BindingSummary | None, csrf: str) -> str:
     status = "已配置" if configured else "未配置"
     status_class = "ready" if configured else "idle"
     details = (
-        f"<dl class='facts'><div><dt>App ID</dt><dd><code>{_e(summary.app_id)}</code></dd></div>"
+        f"<dl class='facts provider-facts'><div><dt>App ID</dt><dd><code>{_e(summary.app_id)}</code></dd></div>"
         f"<div><dt>准入租户</dt><dd><code>{_e(summary.allowed_tenant_key)}</code></dd></div>"
         "<div><dt>App Secret</dt><dd>已由 DPAPI 保护</dd></div></dl>"
         if summary is not None
-        else "<p class='lede'>Feishu Provider 尚未建立本机部署绑定。</p>"
+        else "<div class='provider-empty'><strong>尚未建立部署绑定</strong><p>配置飞书应用后即可启用文档读取与受管 Sheet 写入。</p></div>"
     )
     action = "检查或修改" if configured else "开始配置"
     body = f"""
-    <section class="hero compact">
-      <p class="eyebrow">Capability control room</p>
-      <h1>公共能力沿着清晰的轨道运行。</h1>
-      <p class="lede">这里统一查看 Provider 状态；每个 Provider 仍独立保管自己的配置与凭证。</p>
+    <section class="hero compact portal-hero">
+      <div>
+        <p class="eyebrow">Local capability console</p>
+        <h1>管理本机公共能力。</h1>
+        <p class="lede">集中查看连接状态，并按 Provider 独立管理配置与凭据。</p>
+      </div>
+      <aside class="session-note" aria-label="本机配置会话说明">
+        <span class="session-note-label"><i></i>Local session</span>
+        <strong>凭据只在服务端处理</strong>
+        <small>页面不会回传已保存的 App Secret</small>
+      </aside>
     </section>
     <section class="provider-card">
       <div class="provider-head">
-        <div><p class="eyebrow">Provider / Feishu</p><h2>飞书读写基础能力</h2></div>
+        <div class="provider-identity">
+          <span class="provider-symbol" aria-hidden="true">FS</span>
+          <div><p class="eyebrow">Provider / Feishu</p><h2>飞书读写基础能力</h2><p class="provider-caption">文档读取 · 受管 Sheet 写入 · OAuth</p></div>
+        </div>
         <span class="status {status_class}"><i></i>{status}</span>
       </div>
       {details}
-      <div class="actions"><a class="button primary" href="/providers/feishu">{action}</a></div>
+      <div class="provider-actions">
+        {_cancel_form(csrf)}
+        <a class="button primary" href="/providers/feishu">{action}<span aria-hidden="true">→</span></a>
+      </div>
     </section>
-    {_cancel_form(csrf)}
     """
     return _shell("公共能力管理门户", body, active="portal", configured=configured)
 
@@ -816,8 +829,9 @@ def _shell(title: str, body: str, *, active: str, configured: bool) -> str:
     rail_items = []
     for index, (key, label, detail) in enumerate(states):
         css = "active" if index == active_index else ("complete" if index < active_index else "")
+        current = " aria-current='step'" if index == active_index else ""
         rail_items.append(
-            f"<li class='{css}'><span class='rail-node'></span><div><strong>{label}</strong><small>{detail}</small></div></li>"
+            f"<li class='{css}'{current}><span class='rail-node'></span><div><strong>{label}</strong><small>{detail}</small></div></li>"
         )
     binding_badge = "binding / ready" if configured else "binding / absent"
     return f"""<!doctype html>
@@ -827,15 +841,16 @@ def _shell(title: str, body: str, *, active: str, configured: bool) -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{_e(title)}</title>
   <style>{_STYLES}</style>
+  <style>{_CONTROL_ROOM_STYLES}</style>
 </head>
 <body>
   <div class="app-frame">
     <aside class="rail">
-      <a class="wordmark" href="/"><span>WC</span><div>Workspace<br>Capabilities</div></a>
-      <ol>{''.join(rail_items)}</ol>
+      <a class="wordmark" href="/" aria-label="Workspace Capabilities 门户"><span>WC</span><div>Workspace<br>Capabilities</div></a>
+      <nav class="rail-nav" aria-label="配置流程"><ol>{''.join(rail_items)}</ol></nav>
       <div class="binding-badge"><span></span>{binding_badge}</div>
     </aside>
-    <main>{body}<footer><span>Local administrator session</span><span>Secrets stay server-side</span></footer></main>
+    <main><div class="page">{body}<footer><span>本机管理员会话</span><span>Secret 仅在服务端处理</span></footer></div></main>
   </div>
 </body>
 </html>"""

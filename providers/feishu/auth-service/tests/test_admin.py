@@ -94,6 +94,30 @@ def _post(client: TestClient, path: str, data: dict[str, str]):  # type: ignore[
     return client.post(path, data=data, headers={"Origin": "http://testserver"})
 
 
+def test_admin_portal_uses_balanced_control_room_layout(tmp_path: Path) -> None:
+    app, store, _, _, bootstrap = _admin(tmp_path)
+    store.save(
+        app_id="cli_test",
+        app_secret="existing-secret",
+        allowed_tenant_key="tenant-a",
+    )
+
+    with TestClient(app) as client:
+        _bootstrap(client, bootstrap)
+        portal = client.get("/")
+
+    assert portal.status_code == 200
+    assert "管理本机公共能力" in portal.text
+    assert "公共能力沿着清晰的轨道运行" not in portal.text
+    assert 'class="hero compact portal-hero"' in portal.text
+    assert "class='facts provider-facts'" in portal.text
+    assert 'class="provider-actions"' in portal.text
+    assert 'class="session-note"' in portal.text
+    assert "--content-width: 1040px" in portal.text
+    assert "aria-current='step'" in portal.text
+    assert "Secret 仅在服务端处理" in portal.text
+
+
 def test_admin_create_flow_is_preview_bound_redacted_and_read_back(tmp_path: Path) -> None:
     app, store, validator, session, bootstrap = _admin(tmp_path)
 
