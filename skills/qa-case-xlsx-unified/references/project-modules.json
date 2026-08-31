@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "project": "WORKSPACE",
+  "catalog_version": "2026-08-28",
+  "module_count": 1,
+  "modules": [
+    {
+      "module_key": "WORKSPACE::飞书写入验证",
+      "standard_name": "飞书写入验证",
+      "display_name": "飞书写入验证",
+      "official_aliases": [],
+      "status": "active"
+    }
+  ],
+  "content_sha256": "0cadf4ee6a292c8c94eff03e84f538c6a00dd7bb59473d736ea49191571360ef"
+}

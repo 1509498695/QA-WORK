@@ -6,10 +6,34 @@ import unittest
 from pathlib import Path
 
 from helpers import MODULES, build_valid_run, read_json, write_payload
+from pipeline.contracts import sha256_json
 from pipeline.local import build_local_readiness
+from pipeline.stages import validate_module_snapshot
 
 
 class LocalPipelineTests(unittest.TestCase):
+    def test_module_snapshot_supports_a_second_project_namespace(self) -> None:
+        snapshot = {
+            "schema_version": "1.0",
+            "project": "WORKSPACE",
+            "module_count": 1,
+            "modules": [
+                {
+                    "module_key": "WORKSPACE::飞书写入验证",
+                    "standard_name": "飞书写入验证",
+                    "display_name": "飞书写入验证",
+                    "official_aliases": [],
+                    "status": "active",
+                }
+            ],
+        }
+        snapshot["content_sha256"] = sha256_json(snapshot)
+
+        report = validate_module_snapshot(snapshot)
+
+        self.assertEqual("ok", report["status"], report)
+        self.assertEqual("project_modules", report["artifact"])
+
     def test_complete_source_generates_formal_filename(self) -> None:
         with tempfile.TemporaryDirectory(prefix="qa-case-xlsx-run-") as temporary:
             run_dir = Path(temporary) / "audit"

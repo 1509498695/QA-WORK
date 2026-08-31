@@ -48,18 +48,35 @@ foreach ($dependency in @($python, $node, $nodeModules, $pdftoppm)) {
 
 Invoke-Checked -Command $uv -Arguments @('lock', '--check') -WorkingDirectory $repositoryRoot -Label 'Workspace lock check'
 Invoke-Checked -Command $uv -Arguments @('run', '--locked', 'pytest', '-q') -WorkingDirectory $repositoryRoot -Label 'Workspace tests'
-Invoke-Checked -Command $uv -Arguments @(
-    'run', '--locked', 'python', '-m', 'compileall', '-q',
-    'platform/capability-contracts/src',
-    'platform/capability-contracts/tests',
-    'providers/feishu/protocol/src',
-    'providers/feishu/protocol/tests',
-    'providers/feishu/auth-service/src',
-    'providers/feishu/auth-service/tests',
-    'providers/feishu/mcp-server/src',
-    'providers/feishu/mcp-server/tests',
-    'providers/feishu/tests/integration'
-) -WorkingDirectory $repositoryRoot -Label 'Python compile check'
+$compileCacheBase = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\') + '\'
+$compileCache = [System.IO.Path]::GetFullPath(
+    (Join-Path $compileCacheBase ('qa-skill-hub-compile-' + [guid]::NewGuid().ToString('N')))
+)
+if (-not $compileCache.StartsWith($compileCacheBase, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Compile cache escaped the system temporary directory: $compileCache"
+}
+$previousCompileCache = $env:PYTHONPYCACHEPREFIX
+try {
+    $env:PYTHONPYCACHEPREFIX = $compileCache
+    Invoke-Checked -Command $uv -Arguments @(
+        'run', '--locked', 'python', '-m', 'compileall', '-q',
+        'platform/capability-contracts/src',
+        'platform/capability-contracts/tests',
+        'providers/feishu/protocol/src',
+        'providers/feishu/protocol/tests',
+        'providers/feishu/auth-service/src',
+        'providers/feishu/auth-service/tests',
+        'providers/feishu/mcp-server/src',
+        'providers/feishu/mcp-server/tests',
+        'providers/feishu/tests/integration'
+    ) -WorkingDirectory $repositoryRoot -Label 'Python compile check'
+}
+finally {
+    $env:PYTHONPYCACHEPREFIX = $previousCompileCache
+    if (Test-Path -LiteralPath $compileCache -PathType Container) {
+        Remove-Item -LiteralPath $compileCache -Recurse -Force
+    }
+}
 
 $mcpLeak = & $rg -n 'feishu_auth_service' 'providers/feishu/mcp-server/src'
 if ($LASTEXITCODE -eq 0) {
@@ -95,7 +112,7 @@ try {
     Invoke-Checked -Command $uv -Arguments @(
         'run', '--isolated', '--project', 'plugins/workspace-feishu/runtime', '--locked',
         'python', '-c',
-        'import asyncio; from feishu_provider.mcp_server import build_server; assert len(asyncio.run(build_server().list_tools())) == 4'
+        'import asyncio; from feishu_provider.mcp_server import build_server; assert len(asyncio.run(build_server().list_tools())) == 8'
     ) -WorkingDirectory $repositoryRoot -Label 'Plugin runtime smoke test'
 }
 finally {
@@ -105,6 +122,26 @@ finally {
 & (Join-Path $repositoryRoot 'scripts\install-personal-skills.ps1') -Check
 if ($LASTEXITCODE -ne 0) {
     throw "Personal Skill discovery check failed with exit code $LASTEXITCODE."
+}
+
+$skillValidator = Join-Path $userProfile '.codex\skills\.system\skill-creator\scripts\quick_validate.py'
+if (-not (Test-Path -LiteralPath $skillValidator -PathType Leaf)) {
+    throw "Codex Skill validator is missing: $skillValidator"
+}
+$previousPythonUtf8 = $env:PYTHONUTF8
+try {
+    $env:PYTHONUTF8 = '1'
+    foreach ($candidateSkillRoot in @(
+        (Join-Path $repositoryRoot 'skills\qa-case-xlsx-local'),
+        (Join-Path $repositoryRoot 'skills\qa-case-xlsx-unified')
+    )) {
+        Invoke-Checked -Command $uv -Arguments @(
+            'run', '--with', 'pyyaml', $skillValidator, $candidateSkillRoot
+        ) -WorkingDirectory $repositoryRoot -Label "Skill validation: $candidateSkillRoot"
+    }
+}
+finally {
+    $env:PYTHONUTF8 = $previousPythonUtf8
 }
 
 $skillRoot = Join-Path $repositoryRoot 'skills\qa-case-xlsx-local'
@@ -128,5 +165,10 @@ finally {
     $env:NODE_PATH = $previousNodePath
 }
 
+$unifiedSkillRoot = Join-Path $repositoryRoot 'skills\qa-case-xlsx-unified'
+Invoke-Checked -Command $python -Arguments @(
+    '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_*.py', '-v'
+) -WorkingDirectory $unifiedSkillRoot -Label 'Unified business Skill tests'
+
 Invoke-Checked -Command 'git' -Arguments @('diff', '--check') -WorkingDirectory $repositoryRoot -Label 'Git whitespace check'
-Write-Output 'QA Skill Hub verification passed: workspace=86 tests, business-skill=18 tests, plugin-runtime=verified.'
+Write-Output 'QA Skill Hub verification passed: workspace, business Skill, and plugin runtime verified.'

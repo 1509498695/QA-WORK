@@ -14,7 +14,13 @@ from feishu_auth_service.profiles import ProfileAuthorization, ProfileError, Pro
 from feishu_protocol import (
     DOCX_MEDIA_READ_CAPABILITY,
     DOCX_READ_CAPABILITY,
+    SHEETS_EXPORT_VERIFY_CAPABILITY,
+    SHEETS_MANAGED_WRITE_CAPABILITY,
+    SHEETS_MEDIA_READ_CAPABILITY,
     SHEETS_READ_CAPABILITY,
+    SHEETS_TYPED_VALUES_WRITE_CAPABILITY,
+    WIKI_CHILD_LIST_CAPABILITY,
+    WIKI_NODE_CREATE_CAPABILITY,
     WIKI_NODE_READ_CAPABILITY,
     LeaseDelivery,
 )
@@ -23,6 +29,8 @@ from feishu_protocol import (
 MAX_LEASE_SECONDS = 600
 DOCX_READ_SCOPES = ("docx:document:readonly", "docx:document")
 WIKI_NODE_READ_SCOPES = ("wiki:node:read", "wiki:wiki:readonly", "wiki:wiki")
+WIKI_CHILD_LIST_SCOPES = ("wiki:node:retrieve", "wiki:wiki:readonly", "wiki:wiki")
+WIKI_NODE_CREATE_SCOPES = ("wiki:node:create", "wiki:wiki")
 DOCX_MEDIA_READ_SCOPES = (
     "docs:document.media:download",
     "drive:drive:readonly",
@@ -30,17 +38,33 @@ DOCX_MEDIA_READ_SCOPES = (
     "docs:doc:readonly",
     "docs:doc",
 )
+SHEETS_MEDIA_READ_SCOPES = DOCX_MEDIA_READ_SCOPES
 SHEETS_READ_SCOPES = (
     "sheets:spreadsheet:readonly",
     "sheets:spreadsheet",
     "drive:drive:readonly",
     "drive:drive",
 )
+SHEETS_MANAGED_WRITE_SCOPES = (
+    "sheets:spreadsheet",
+    "drive:drive",
+)
+SHEETS_TYPED_VALUES_WRITE_SCOPES = ("sheets:spreadsheet:write_only",)
+SHEETS_EXPORT_VERIFY_SCOPES = (
+    "drive:export:readonly",
+    "docs:document:export",
+)
 _CAPABILITY_SCOPE_ALTERNATIVES = {
     DOCX_READ_CAPABILITY: DOCX_READ_SCOPES,
     WIKI_NODE_READ_CAPABILITY: WIKI_NODE_READ_SCOPES,
+    WIKI_CHILD_LIST_CAPABILITY: WIKI_CHILD_LIST_SCOPES,
+    WIKI_NODE_CREATE_CAPABILITY: WIKI_NODE_CREATE_SCOPES,
     DOCX_MEDIA_READ_CAPABILITY: DOCX_MEDIA_READ_SCOPES,
+    SHEETS_MEDIA_READ_CAPABILITY: SHEETS_MEDIA_READ_SCOPES,
     SHEETS_READ_CAPABILITY: SHEETS_READ_SCOPES,
+    SHEETS_MANAGED_WRITE_CAPABILITY: SHEETS_MANAGED_WRITE_SCOPES,
+    SHEETS_TYPED_VALUES_WRITE_CAPABILITY: SHEETS_TYPED_VALUES_WRITE_SCOPES,
+    SHEETS_EXPORT_VERIFY_CAPABILITY: SHEETS_EXPORT_VERIFY_SCOPES,
 }
 
 

@@ -17,6 +17,10 @@ from feishu_auth_service.leases import (
     DOCX_MEDIA_READ_SCOPES,
     DOCX_READ_SCOPES,
     SHEETS_READ_SCOPES,
+    SHEETS_EXPORT_VERIFY_SCOPES,
+    SHEETS_MANAGED_WRITE_SCOPES,
+    WIKI_CHILD_LIST_SCOPES,
+    WIKI_NODE_CREATE_SCOPES,
     WIKI_NODE_READ_SCOPES,
     LocalLeaseBroker,
 )
@@ -54,7 +58,7 @@ def create_app(
 
     app = FastAPI(
         title="Workspace Feishu OAuth",
-        version="0.4.1",
+        version="0.7.0",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
@@ -206,6 +210,38 @@ def create_app(
                 return _error_page(
                     "飞书授权未包含电子表格读取权限",
                     "sheets_scope_missing",
+                    status_code=403,
+                )
+            if not set(grant.scopes).intersection(WIKI_NODE_CREATE_SCOPES):
+                del grant
+                LOGGER.warning("wiki_create_scope_missing request_ref=%s", request_ref)
+                return _error_page(
+                    "飞书授权未包含 Wiki 节点创建权限",
+                    "wiki_create_scope_missing",
+                    status_code=403,
+                )
+            if not set(grant.scopes).intersection(WIKI_CHILD_LIST_SCOPES):
+                del grant
+                LOGGER.warning("wiki_child_list_scope_missing request_ref=%s", request_ref)
+                return _error_page(
+                    "飞书授权未包含 Wiki 子节点列表读取权限",
+                    "wiki_child_list_scope_missing",
+                    status_code=403,
+                )
+            if not set(grant.scopes).intersection(SHEETS_MANAGED_WRITE_SCOPES):
+                del grant
+                LOGGER.warning("sheets_write_scope_missing request_ref=%s", request_ref)
+                return _error_page(
+                    "飞书授权未包含电子表格编辑权限",
+                    "sheets_write_scope_missing",
+                    status_code=403,
+                )
+            if not set(grant.scopes).intersection(SHEETS_EXPORT_VERIFY_SCOPES):
+                del grant
+                LOGGER.warning("sheets_export_scope_missing request_ref=%s", request_ref)
+                return _error_page(
+                    "飞书授权未包含云文档导出权限",
+                    "sheets_export_scope_missing",
                     status_code=403,
                 )
             try:
@@ -402,7 +438,7 @@ def _evaluate_identity(settings: Settings, identity: UserIdentity) -> AuthResult
         )
     return AuthResult(
         status="verified",
-        message="真实 OAuth、租户校验和用户身份只读回读均已完成。",
+        message="真实 OAuth、租户校验、用户身份回读和受控 Sheets 能力授权均已完成。",
         tenant_key=identity.tenant_key,
         profile_ref=_profile_ref(settings.app_id, identity),
         open_id_hint=_mask(identity.open_id),

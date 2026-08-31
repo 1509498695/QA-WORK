@@ -13,7 +13,11 @@ from feishu_auth_service.leases import LocalLeaseBroker
 from feishu_protocol import (
     DOCX_MEDIA_READ_CAPABILITY,
     DOCX_READ_CAPABILITY,
+    SHEETS_MEDIA_READ_CAPABILITY,
+    SHEETS_TYPED_VALUES_WRITE_CAPABILITY,
     SHEETS_READ_CAPABILITY,
+    WIKI_CHILD_LIST_CAPABILITY,
+    WIKI_NODE_CREATE_CAPABILITY,
     WIKI_NODE_READ_CAPABILITY,
 )
 from feishu_auth_service.models import TokenGrant
@@ -200,6 +204,110 @@ def test_lease_broker_issues_one_lease_for_docx_and_wiki_scopes(
     assert "wiki:node:read" in lease.scopes
 
 
+def test_lease_broker_requires_dedicated_wiki_create_scope(tmp_path: Path) -> None:
+    scopes = ("offline_access", "wiki:node:read")
+    broker = LocalLeaseBroker(
+        settings=Settings(
+            app_id="cli_test",
+            app_secret="secret",
+            allowed_tenant_key="tenant-a",
+        ),
+        profile_vault=_vault(tmp_path, scopes=scopes),
+        token_refresher=FakeRefresher(scopes),
+    )
+
+    with pytest.raises(CapabilityError) as error:
+        asyncio.run(
+            broker.issue(
+                task_ref="task-wiki-create",
+                profile_ref=PROFILE_REF,
+                capabilities=(WIKI_NODE_CREATE_CAPABILITY,),
+            )
+        )
+
+    assert error.value.code is CapabilityErrorCode.AUTH_REQUIRED
+    assert error.value.details == {
+        "capabilities": [WIKI_NODE_CREATE_CAPABILITY]
+    }
+
+
+def test_lease_broker_requires_dedicated_wiki_child_list_scope(
+    tmp_path: Path,
+) -> None:
+    scopes = ("offline_access", "wiki:node:read", "wiki:node:create")
+    broker = LocalLeaseBroker(
+        settings=Settings(
+            app_id="cli_test",
+            app_secret="secret",
+            allowed_tenant_key="tenant-a",
+        ),
+        profile_vault=_vault(tmp_path, scopes=scopes),
+        token_refresher=FakeRefresher(scopes),
+    )
+
+    with pytest.raises(CapabilityError) as error:
+        asyncio.run(
+            broker.issue(
+                task_ref="task-wiki-list",
+                profile_ref=PROFILE_REF,
+                capabilities=(WIKI_CHILD_LIST_CAPABILITY,),
+            )
+        )
+
+    assert error.value.code is CapabilityErrorCode.AUTH_REQUIRED
+    assert error.value.details == {
+        "capabilities": [WIKI_CHILD_LIST_CAPABILITY]
+    }
+
+
+def test_lease_broker_issues_wiki_create_capability(tmp_path: Path) -> None:
+    scopes = ("offline_access", "wiki:node:create")
+    broker = LocalLeaseBroker(
+        settings=Settings(
+            app_id="cli_test",
+            app_secret="secret",
+            allowed_tenant_key="tenant-a",
+        ),
+        profile_vault=_vault(tmp_path, scopes=scopes),
+        token_refresher=FakeRefresher(scopes),
+    )
+
+    lease = asyncio.run(
+        broker.issue(
+            task_ref="task-wiki-create",
+            profile_ref=PROFILE_REF,
+            capabilities=(WIKI_NODE_CREATE_CAPABILITY,),
+        )
+    )
+
+    assert lease.capabilities == (WIKI_NODE_CREATE_CAPABILITY,)
+    assert "wiki:node:create" in lease.scopes
+
+
+def test_lease_broker_issues_wiki_child_list_capability(tmp_path: Path) -> None:
+    scopes = ("offline_access", "wiki:node:retrieve")
+    broker = LocalLeaseBroker(
+        settings=Settings(
+            app_id="cli_test",
+            app_secret="secret",
+            allowed_tenant_key="tenant-a",
+        ),
+        profile_vault=_vault(tmp_path, scopes=scopes),
+        token_refresher=FakeRefresher(scopes),
+    )
+
+    lease = asyncio.run(
+        broker.issue(
+            task_ref="task-wiki-list",
+            profile_ref=PROFILE_REF,
+            capabilities=(WIKI_CHILD_LIST_CAPABILITY,),
+        )
+    )
+
+    assert lease.capabilities == (WIKI_CHILD_LIST_CAPABILITY,)
+    assert "wiki:node:retrieve" in lease.scopes
+
+
 def test_lease_broker_requires_media_scope_for_docx_asset_capability(
     tmp_path: Path,
 ) -> None:
@@ -255,6 +363,61 @@ def test_lease_broker_issues_media_lease_with_minimum_scope(
     )
 
     assert lease.capabilities == (DOCX_MEDIA_READ_CAPABILITY,)
+    assert "docs:document.media:download" in lease.scopes
+
+
+def test_lease_broker_requires_media_scope_for_sheets_image_capability(
+    tmp_path: Path,
+) -> None:
+    scopes = ("offline_access", "sheets:spreadsheet:readonly")
+    broker = LocalLeaseBroker(
+        settings=Settings(
+            app_id="cli_test",
+            app_secret="secret",
+            allowed_tenant_key="tenant-a",
+        ),
+        profile_vault=_vault(tmp_path, scopes=scopes),
+        token_refresher=FakeRefresher(scopes),
+    )
+
+    with pytest.raises(CapabilityError) as error:
+        asyncio.run(
+            broker.issue(
+                task_ref="task-sheet-image",
+                profile_ref=PROFILE_REF,
+                capabilities=(SHEETS_MEDIA_READ_CAPABILITY,),
+            )
+        )
+
+    assert error.value.code is CapabilityErrorCode.AUTH_REQUIRED
+    assert error.value.details == {
+        "capabilities": [SHEETS_MEDIA_READ_CAPABILITY]
+    }
+
+
+def test_lease_broker_issues_sheets_media_lease_with_minimum_scope(
+    tmp_path: Path,
+) -> None:
+    scopes = ("offline_access", "docs:document.media:download")
+    broker = LocalLeaseBroker(
+        settings=Settings(
+            app_id="cli_test",
+            app_secret="secret",
+            allowed_tenant_key="tenant-a",
+        ),
+        profile_vault=_vault(tmp_path, scopes=scopes),
+        token_refresher=FakeRefresher(scopes),
+    )
+
+    lease = asyncio.run(
+        broker.issue(
+            task_ref="task-sheet-image",
+            profile_ref=PROFILE_REF,
+            capabilities=(SHEETS_MEDIA_READ_CAPABILITY,),
+        )
+    )
+
+    assert lease.capabilities == (SHEETS_MEDIA_READ_CAPABILITY,)
     assert "docs:document.media:download" in lease.scopes
 
 
@@ -316,3 +479,54 @@ def test_lease_broker_issues_sheets_and_wiki_lease_with_readonly_scope(
         WIKI_NODE_READ_CAPABILITY,
     )
     assert "sheets:spreadsheet:readonly" in lease.scopes
+
+
+def test_lease_broker_requires_typed_values_write_scope(tmp_path: Path) -> None:
+    scopes = ("offline_access", "sheets:spreadsheet")
+    broker = LocalLeaseBroker(
+        settings=Settings(
+            app_id="cli_test",
+            app_secret="secret",
+            allowed_tenant_key="tenant-a",
+        ),
+        profile_vault=_vault(tmp_path, scopes=scopes),
+        token_refresher=FakeRefresher(scopes),
+    )
+
+    with pytest.raises(CapabilityError) as error:
+        asyncio.run(
+            broker.issue(
+                task_ref="task-typed-write",
+                profile_ref=PROFILE_REF,
+                capabilities=(SHEETS_TYPED_VALUES_WRITE_CAPABILITY,),
+            )
+        )
+
+    assert error.value.code is CapabilityErrorCode.AUTH_REQUIRED
+    assert error.value.details == {
+        "capabilities": [SHEETS_TYPED_VALUES_WRITE_CAPABILITY]
+    }
+
+
+def test_lease_broker_issues_typed_values_write_scope(tmp_path: Path) -> None:
+    scopes = ("offline_access", "sheets:spreadsheet:write_only")
+    broker = LocalLeaseBroker(
+        settings=Settings(
+            app_id="cli_test",
+            app_secret="secret",
+            allowed_tenant_key="tenant-a",
+        ),
+        profile_vault=_vault(tmp_path, scopes=scopes),
+        token_refresher=FakeRefresher(scopes),
+    )
+
+    lease = asyncio.run(
+        broker.issue(
+            task_ref="task-typed-write",
+            profile_ref=PROFILE_REF,
+            capabilities=(SHEETS_TYPED_VALUES_WRITE_CAPABILITY,),
+        )
+    )
+
+    assert lease.capabilities == (SHEETS_TYPED_VALUES_WRITE_CAPABILITY,)
+    assert "sheets:spreadsheet:write_only" in lease.scopes

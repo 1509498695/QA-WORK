@@ -18,3 +18,7 @@ date: 2026-08-19
 - 只有形成第二个真实消费者、稳定合同和独立测试后，才另行把可复用生成核心抽取到 `packages/<package-name>/`；统一入口不得跨目录导入 `qa-case-xlsx-local` 的私有源码。
 - 统一入口只通过已安装 Workspace Feishu Plugin 的公开 MCP 合同读取飞书；即使 Provider 位于同一仓库，也不得导入其私有源码、运行时、凭证或本机路径。
 - `qa-case-xlsx-local` 的目录与 Git 归属迁移由 QA Skill Hub ADR-0035 授权并保留完整历史；本 ADR 仍只决定两个入口的身份和权限边界。
+
+## 2026-08-28 实现说明
+
+第二个真实消费者现已成立：`qa-case-xlsx-unified` 先实现飞书来源到飞书受管 Sheet 的读写纵切。它复用本地 Skill 已公开的规则资源与校验 CLI，但不跨目录导入其 Python 模块，也不调用本地来源提取或工作簿构建处理飞书内容。共享 Python 包仍需在两个消费者的 artifact 合同经真实交付验证稳定后另行设计；当前纵切不提前抽取。

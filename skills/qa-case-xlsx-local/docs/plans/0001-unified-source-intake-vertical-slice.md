@@ -2,7 +2,7 @@
 
 ## 状态
 
-设计范围已确认，尚未开始实现。
+本来源接入设计已由 `skills/qa-case-xlsx-unified/docs/plans/0001-feishu-case-read-write-vertical-slice.md` 进入实现。当前实现先完成飞书来源与飞书交付纵切；本计划原定的本地/飞书混合来源仍未实现，不能因新 Skill 已创建而视为完成。
 
 ## 目标
 

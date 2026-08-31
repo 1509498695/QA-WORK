@@ -28,6 +28,10 @@ def test_locator_classifies_local_and_feishu_targets() -> None:
     assert docx.resource_id == "doxcnAbCdEf123456"
     assert docx.canonical_url == "https://example.feishu.cn/docx/doxcnAbCdEf123456"
     assert sheet.resource_type is ResourceType.FEISHU_SHEET
+    assert sheet.worksheet_id == "abc123"
+    assert sheet.canonical_url == (
+        "https://example.feishu.cn/sheets/shtcnAbCdEf123456?sheet=abc123"
+    )
     assert wiki.resource_type is ResourceType.FEISHU_WIKI
     assert wiki.resource_id == "KhbDwPjf9iovDnkD3yscx9M8nAb"
 
@@ -46,3 +50,14 @@ def test_locator_does_not_guess_an_unrelated_url() -> None:
 
     assert locator.target is TargetKind.UNKNOWN
     assert locator.resource_type is ResourceType.UNKNOWN
+
+
+def test_locator_rejects_ambiguous_or_invalid_sheet_selectors() -> None:
+    for locator in (
+        "https://example.feishu.cn/sheets/shtcnAbCdEf123456?sheet=",
+        "https://example.feishu.cn/sheets/shtcnAbCdEf123456?sheet=abc123&sheet=def456",
+    ):
+        with pytest.raises(CapabilityError) as error:
+            classify_locator(locator)
+
+        assert error.value.code is CapabilityErrorCode.INVALID_LOCATOR

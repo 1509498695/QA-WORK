@@ -1,11 +1,12 @@
 [project]
 name = "workspace-feishu-mcp-server"
-version = "0.4.1"
-description = "Read-only MCP server for Workspace Feishu"
+version = "0.7.0"
+description = "Controlled read and managed-sheet write MCP server for Workspace Feishu"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "httpx>=0.28,<1",
     "mcp>=1.12.4,<2",
+    "openpyxl>=3.1.5,<4",
     "pydantic>=2.11,<3",
     "qa-skillhub-capability-contracts",
     "workspace-feishu-protocol",

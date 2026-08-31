@@ -31,6 +31,8 @@ def parse_args() -> argparse.Namespace:
     run = subparsers.add_parser("validate-run")
     run.add_argument("--run-dir", type=Path, required=True)
     run.add_argument("--modules", type=Path, default=DEFAULT_MODULES)
+    run.add_argument("--rules-dir", type=Path, default=DEFAULT_RULES)
+    run.add_argument("--provisional-modules", type=Path)
     run.add_argument("--out", type=Path)
 
     readiness = subparsers.add_parser("readiness-local")
@@ -48,7 +50,12 @@ def main() -> None:
         elif args.command == "build-manifest":
             result = build_manifest(args.rules_dir, args.release_version, staged=args.staged)
         elif args.command == "validate-run":
-            result = validate_run(args.run_dir, args.modules)
+            result = validate_run(
+                args.run_dir,
+                args.modules,
+                rules_dir=args.rules_dir,
+                provisional_snapshot_path=args.provisional_modules,
+            )
             if args.out:
                 write_json(args.out, result)
         else:

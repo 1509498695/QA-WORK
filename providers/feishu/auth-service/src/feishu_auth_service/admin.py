@@ -277,7 +277,7 @@ def create_admin_app(
 
     app = FastAPI(
         title="Workspace Capability Admin",
-        version="0.4.1",
+        version="0.7.0",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,

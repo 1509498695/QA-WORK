@@ -1,6 +1,6 @@
 [project]
 name = "workspace-feishu-auth-service"
-version = "0.4.1"
+version = "0.7.0"
 description = "Local authorization control plane for Workspace Feishu"
 requires-python = ">=3.13,<3.14"
 dependencies = [

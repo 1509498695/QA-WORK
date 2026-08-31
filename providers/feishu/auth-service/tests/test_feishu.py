@@ -54,8 +54,10 @@ async def _exercise_feishu_client() -> None:
                     "scope": (
                         "auth:user.id:read offline_access "
                         "docx:document:readonly wiki:node:read "
+                        "wiki:node:retrieve wiki:node:create "
                         "docs:document.media:download "
-                        "sheets:spreadsheet:readonly"
+                        "sheets:spreadsheet sheets:spreadsheet:write_only "
+                        "drive:export:readonly"
                     ),
                     "token_type": "Bearer",
                 },
@@ -91,8 +93,10 @@ async def _exercise_feishu_client() -> None:
         "scope": [
             "auth:user.id:read offline_access "
                 "docx:document:readonly wiki:node:read "
+                "wiki:node:retrieve wiki:node:create "
                 "docs:document.media:download "
-                "sheets:spreadsheet:readonly"
+                "sheets:spreadsheet sheets:spreadsheet:write_only "
+                "drive:export:readonly"
         ],
         "state": ["state-value"],
     }

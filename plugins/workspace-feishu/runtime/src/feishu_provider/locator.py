@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from enum import StrEnum
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from pydantic import BaseModel, ConfigDict
 
@@ -30,6 +30,7 @@ class ResourceLocator(BaseModel):
     resource_type: ResourceType
     original: str
     resource_id: str | None = None
+    worksheet_id: str | None = None
     canonical_url: str | None = None
 
 
@@ -73,12 +74,22 @@ def classify_locator(value: str) -> ResourceLocator:
                 resource_id = segments[index + 1]
                 if not _TOKEN.fullmatch(resource_id):
                     break
+                worksheet_id = None
+                if resource_type in {
+                    ResourceType.FEISHU_SHEET,
+                    ResourceType.FEISHU_WIKI,
+                }:
+                    worksheet_id = _worksheet_selector(parsed.query)
+                canonical_url = f"https://{hostname}/{segment.lower()}/{resource_id}"
+                if worksheet_id is not None:
+                    canonical_url += "?" + urlencode({"sheet": worksheet_id})
                 return ResourceLocator(
                     target=TargetKind.FEISHU,
                     resource_type=resource_type,
                     original=normalized,
                     resource_id=resource_id,
-                    canonical_url=f"https://{hostname}/{segment.lower()}/{resource_id}",
+                    worksheet_id=worksheet_id,
+                    canonical_url=canonical_url,
                 )
             raise CapabilityError(
                 CapabilityErrorCode.INVALID_LOCATOR,
@@ -117,6 +128,30 @@ def _is_feishu_host(hostname: str) -> bool:
     return hostname in {"feishu.cn", "larksuite.com"} or hostname.endswith(
         _FEISHU_HOST_SUFFIXES
     )
+
+
+def _worksheet_selector(query: str) -> str | None:
+    try:
+        parameters = parse_qs(
+            query,
+            keep_blank_values=True,
+            strict_parsing=False,
+            max_num_fields=32,
+        )
+    except ValueError as exc:
+        raise CapabilityError(
+            CapabilityErrorCode.INVALID_LOCATOR,
+            "The Feishu URL query is invalid or too large.",
+        ) from exc
+    selectors = parameters.get("sheet", [])
+    if not selectors:
+        return None
+    if len(selectors) != 1 or not _TOKEN.fullmatch(selectors[0]):
+        raise CapabilityError(
+            CapabilityErrorCode.INVALID_LOCATOR,
+            "The Feishu URL must contain one valid sheet selector.",
+        )
+    return selectors[0]
 
 
 def _validate_text(value: object) -> str:

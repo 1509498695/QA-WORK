@@ -66,7 +66,9 @@ def platform_error(
     operation: str,
 ) -> CapabilityError:
     normalized_code = str(platform_code) if platform_code is not None else ""
-    if normalized_code in {"131006", "1310213", "99991672"}:
+    if normalized_code == "99991679":
+        code = CapabilityErrorCode.AUTH_REQUIRED
+    elif normalized_code in {"131006", "1310213", "99991672"}:
         code = CapabilityErrorCode.PERMISSION_DENIED
     elif normalized_code in {"131005", "1310214", "1310249"}:
         code = CapabilityErrorCode.RESOURCE_NOT_FOUND

@@ -18,8 +18,12 @@ DEFAULT_OAUTH_SCOPES = (
     "offline_access",
     "docx:document:readonly",
     "wiki:node:read",
+    "wiki:node:retrieve",
+    "wiki:node:create",
     "docs:document.media:download",
-    "sheets:spreadsheet:readonly",
+    "sheets:spreadsheet",
+    "sheets:spreadsheet:write_only",
+    "drive:export:readonly",
 )
 
 

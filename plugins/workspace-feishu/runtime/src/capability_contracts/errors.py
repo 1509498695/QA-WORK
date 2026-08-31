@@ -22,6 +22,14 @@ class CapabilityErrorCode(StrEnum):
     LEASE_EXPIRED = "lease_expired"
     AMBIGUOUS_WRITE = "ambiguous_write"
     RECONCILIATION_REQUIRED = "reconciliation_required"
+    UNSUPPORTED_DELIVERY_SPEC = "unsupported_delivery_spec"
+    PREVIEW_EXPIRED = "preview_expired"
+    PRECONDITION_FAILED = "precondition_failed"
+    CONFIRMATION_REQUIRED = "confirmation_required"
+    WRITE_CONFLICT = "write_conflict"
+    VERIFICATION_INCOMPLETE = "verification_incomplete"
+    BASE_SPEC_REQUIRED = "base_spec_required"
+    BASELINE_VERIFICATION_INCOMPLETE = "baseline_verification_incomplete"
 
 
 class CapabilityFailure(BaseModel):

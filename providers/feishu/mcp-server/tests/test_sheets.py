@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
 
 import httpx
 import pytest
@@ -8,6 +10,7 @@ import pytest
 from capability_contracts.errors import CapabilityError, CapabilityErrorCode
 from capability_contracts.models import OperationStatus
 from feishu_protocol import (
+    SHEETS_MEDIA_READ_CAPABILITY,
     SHEETS_READ_CAPABILITY,
     WIKI_NODE_READ_CAPABILITY,
 )
@@ -17,6 +20,11 @@ from feishu_provider.sheets import FeishuSheetsClient
 
 
 SHEET_TOKEN = "shtcn1234567890"
+IMAGE_TOKEN = "imgcn1234567890"
+TEMP_IMAGE_URL = (
+    "https://internal-api-drive-stream.feishu.cn/space/api/box/stream/"
+    "download/authcode/?code=temporary_image_download_code_1234567890"
+)
 WIKI_TOKEN = "EzhywOSQIiE92ZkHZmBcG0E9njg"
 PROFILE_REF = "profile_0123456789abcdef0123"
 
@@ -217,6 +225,533 @@ def test_sheets_read_preserves_metadata_merges_formulas_and_values() -> None:
     ]
     assert lease_client.closed is True
     assert len(requests) == 6
+
+
+def test_sheets_read_downloads_embedded_images_once_per_file_token() -> None:
+    image_content = b"\x89PNG\r\n\x1a\nimage-test"
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.host == "internal-api-drive-stream.feishu.cn":
+            assert request.url.path.endswith("/download/authcode/")
+            assert request.headers.get("authorization") is None
+            assert request.headers["range"] == "bytes=0-8388608"
+            return httpx.Response(
+                200,
+                headers={
+                    "content-type": "image/png; charset=binary",
+                    "content-length": str(len(image_content)),
+                },
+                content=image_content,
+            )
+        assert request.headers["authorization"] == (
+            "Bearer sheet-access-token-must-not-render"
+        )
+        if request.url.path.endswith(f"/spreadsheets/{SHEET_TOKEN}"):
+            return httpx.Response(200, json=_metadata())
+        if request.url.path.endswith("/sheets/query"):
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "sheets": [
+                            {
+                                "sheet_id": "sheet-images",
+                                "title": "图片表",
+                                "index": 0,
+                                "hidden": False,
+                                "resource_type": "sheet",
+                                "grid_properties": {
+                                    "row_count": 1,
+                                    "column_count": 2,
+                                },
+                            }
+                        ]
+                    },
+                },
+            )
+        if request.url.path.endswith("/values_batch_get"):
+            image_cell = {
+                "fileToken": IMAGE_TOKEN,
+                "height": 1994,
+                "link": "https://untrusted.example/image-must-not-be-fetched",
+                "text": "",
+                "type": "embed-image",
+                "width": 3278,
+            }
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "revision": 20,
+                        "valueRanges": [
+                            {
+                                "majorDimension": "ROWS",
+                                "range": "sheet-images!A1:B1",
+                                "revision": 20,
+                                "values": [[image_cell, image_cell]],
+                            }
+                        ],
+                    },
+                },
+            )
+        assert request.url.path.endswith("/batch_get_tmp_download_url")
+        assert request.url.params.get_list("file_tokens") == [IMAGE_TOKEN]
+        return httpx.Response(
+            200,
+            json={
+                "code": 0,
+                "data": {
+                    "tmp_download_urls": [
+                        {
+                            "file_token": IMAGE_TOKEN,
+                            "tmp_download_url": TEMP_IMAGE_URL,
+                        }
+                    ]
+                },
+            },
+        )
+
+    lease_client = FakeLeaseClient()
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    client = FeishuSheetsClient(
+        lease_client=lease_client,
+        http_client=http,
+        media_download_interval_seconds=0,
+    )
+
+    result = asyncio.run(
+        client.read(
+            locator=f"https://example.feishu.cn/sheets/{SHEET_TOKEN}",
+            task_ref="task-sheet-images",
+            profile_ref=PROFILE_REF,
+        )
+    )
+    asyncio.run(http.aclose())
+
+    expected_hash = "sha256:" + hashlib.sha256(image_content).hexdigest()
+    assert result.status is OperationStatus.OK
+    assert result.evidence.retrieval_complete is True
+    assert result.asset_count == 2
+    assert result.asset_total_bytes == len(image_content)
+    assert [asset.cell for asset in result.assets] == ["A1", "B1"]
+    assert result.assets[0].width_px == 3278
+    assert result.assets[0].height_px == 1994
+    assert result.assets[0].media_type == "image/png"
+    assert result.assets[0].content_hash == expected_hash
+    assert result.assets[0].content_base64 == base64.b64encode(
+        image_content
+    ).decode("ascii")
+    assert result.assets[0].retrieval_method == "temporary_url"
+    assert result.assets[1].content_hash == expected_hash
+    assert result.worksheets[0].retrieval_complete is True
+    assert lease_client.calls == [
+        ("task-sheet-images", PROFILE_REF, (SHEETS_READ_CAPABILITY,)),
+        ("task-sheet-images", PROFILE_REF, (SHEETS_MEDIA_READ_CAPABILITY,)),
+    ]
+    assert len(requests) == 5
+
+
+def test_sheets_read_falls_back_to_validated_cell_image_link() -> None:
+    image_content = b"sheet-cell-link-image"
+    requests: list[httpx.Request] = []
+    download_link = (
+        "https://internal-api-drive-stream.feishu.cn/space/api/box/stream/"
+        "download/v2/cover/covercn1234567890/?height=1280&"
+        "mount_node_token=mntcn1234567890&mount_point=sheet_image&"
+        "policy=equal&width=1280"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        assert request.headers["authorization"] == (
+            "Bearer sheet-access-token-must-not-render"
+        )
+        if request.url.path.endswith(f"/spreadsheets/{SHEET_TOKEN}"):
+            return httpx.Response(200, json=_metadata())
+        if request.url.path.endswith("/sheets/query"):
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "sheets": [
+                            {
+                                "sheet_id": "sheet-images",
+                                "title": "图片表",
+                                "index": 0,
+                                "hidden": False,
+                                "resource_type": "sheet",
+                                "grid_properties": {
+                                    "row_count": 1,
+                                    "column_count": 1,
+                                },
+                            }
+                        ]
+                    },
+                },
+            )
+        if request.url.path.endswith("/values_batch_get"):
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "revision": 23,
+                        "valueRanges": [
+                            {
+                                "majorDimension": "ROWS",
+                                "range": "sheet-images!A1:A1",
+                                "revision": 23,
+                                "values": [
+                                    [
+                                        {
+                                            "fileToken": IMAGE_TOKEN,
+                                            "height": 100,
+                                            "link": download_link,
+                                            "type": "embed-image",
+                                            "width": 100,
+                                        }
+                                    ]
+                                ],
+                            }
+                        ],
+                    },
+                },
+            )
+        if request.url.path.endswith("/batch_get_tmp_download_url"):
+            assert request.url.params.get_list("file_tokens") == [IMAGE_TOKEN]
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {"tmp_download_urls": []},
+                },
+            )
+        if request.url.host == "open.feishu.cn":
+            assert request.url.path.endswith(f"/medias/{IMAGE_TOKEN}/download")
+            return httpx.Response(
+                403,
+                headers={"content-type": "text/plain"},
+                content=b"forbidden",
+            )
+        assert request.url.host == "internal-api-drive-stream.feishu.cn"
+        assert str(request.url) == download_link
+        assert request.headers["range"] == "bytes=0-8388608"
+        return httpx.Response(
+            200,
+            headers={
+                "content-type": "image/jpeg",
+                "content-length": str(len(image_content)),
+            },
+            content=image_content,
+        )
+
+    lease_client = FakeLeaseClient()
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    client = FeishuSheetsClient(
+        lease_client=lease_client,
+        http_client=http,
+        media_download_interval_seconds=0,
+    )
+    result = asyncio.run(
+        client.read(
+            locator=f"https://example.feishu.cn/sheets/{SHEET_TOKEN}",
+            task_ref="task-sheet-image-link",
+            profile_ref=PROFILE_REF,
+        )
+    )
+    asyncio.run(http.aclose())
+
+    assert result.status is OperationStatus.OK
+    assert result.asset_count == 1
+    assert result.asset_total_bytes == len(image_content)
+    assert result.assets[0].retrieval_method == "cell_link"
+    assert result.assets[0].media_type == "image/jpeg"
+    assert result.assets[0].content_base64 == base64.b64encode(
+        image_content
+    ).decode("ascii")
+    assert len(requests) == 6
+
+
+def test_sheets_read_never_follows_untrusted_cell_image_link() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path.endswith(f"/spreadsheets/{SHEET_TOKEN}"):
+            return httpx.Response(200, json=_metadata())
+        if request.url.path.endswith("/sheets/query"):
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "sheets": [
+                            {
+                                "sheet_id": "sheet-images",
+                                "title": "图片表",
+                                "index": 0,
+                                "hidden": False,
+                                "resource_type": "sheet",
+                                "grid_properties": {
+                                    "row_count": 1,
+                                    "column_count": 1,
+                                },
+                            }
+                        ]
+                    },
+                },
+            )
+        if request.url.path.endswith("/values_batch_get"):
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "revision": 24,
+                        "valueRanges": [
+                            {
+                                "majorDimension": "ROWS",
+                                "range": "sheet-images!A1:A1",
+                                "revision": 24,
+                                "values": [
+                                    [
+                                        {
+                                            "fileToken": IMAGE_TOKEN,
+                                            "height": 100,
+                                            "link": (
+                                                "https://untrusted.example/"
+                                                f"{IMAGE_TOKEN}"
+                                            ),
+                                            "type": "embed-image",
+                                            "width": 100,
+                                        }
+                                    ]
+                                ],
+                            }
+                        ],
+                    },
+                },
+            )
+        if request.url.path.endswith("/batch_get_tmp_download_url"):
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {"tmp_download_urls": []},
+                },
+            )
+        assert request.url.host == "open.feishu.cn"
+        return httpx.Response(403, content=b"forbidden")
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    client = FeishuSheetsClient(
+        lease_client=FakeLeaseClient(),
+        http_client=http,
+        media_download_interval_seconds=0,
+    )
+
+    with pytest.raises(CapabilityError) as error:
+        asyncio.run(
+            client.read(
+                locator=f"https://example.feishu.cn/sheets/{SHEET_TOKEN}",
+                task_ref="task-untrusted-image-link",
+                profile_ref=PROFILE_REF,
+            )
+        )
+    asyncio.run(http.aclose())
+
+    assert error.value.code is CapabilityErrorCode.PERMISSION_DENIED
+    assert len(requests) == 5
+
+
+def test_sheets_read_marks_malformed_embedded_image_without_media_lease() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith(f"/spreadsheets/{SHEET_TOKEN}"):
+            return httpx.Response(200, json=_metadata())
+        if request.url.path.endswith("/sheets/query"):
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "sheets": [
+                            {
+                                "sheet_id": "sheet-images",
+                                "title": "图片表",
+                                "index": 0,
+                                "hidden": False,
+                                "resource_type": "sheet",
+                                "grid_properties": {
+                                    "row_count": 1,
+                                    "column_count": 1,
+                                },
+                            }
+                        ]
+                    },
+                },
+            )
+        assert request.url.path.endswith("/values_batch_get")
+        return httpx.Response(
+            200,
+            json={
+                "code": 0,
+                "data": {
+                    "revision": 21,
+                    "valueRanges": [
+                        {
+                            "majorDimension": "ROWS",
+                            "range": "sheet-images!A1:A1",
+                            "revision": 21,
+                            "values": [
+                                [
+                                    {
+                                        "fileToken": "invalid token",
+                                        "height": 100,
+                                        "type": "embed-image",
+                                        "width": 100,
+                                    }
+                                ]
+                            ],
+                        }
+                    ],
+                },
+            },
+        )
+
+    lease_client = FakeLeaseClient()
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    client = FeishuSheetsClient(lease_client=lease_client, http_client=http)
+    result = asyncio.run(
+        client.read(
+            locator=f"https://example.feishu.cn/sheets/{SHEET_TOKEN}",
+            task_ref="task-malformed-image",
+            profile_ref=PROFILE_REF,
+        )
+    )
+    asyncio.run(http.aclose())
+
+    assert result.status is OperationStatus.RETRIEVAL_INCOMPLETE
+    assert result.assets == []
+    assert result.asset_count == 0
+    assert result.worksheets[0].warnings == ("malformed_embed_image_cells:1",)
+    assert result.evidence.warnings == (
+        "sheet:sheet-images:malformed_embed_image_cells:1",
+    )
+    assert lease_client.calls == [
+        ("task-malformed-image", PROFILE_REF, (SHEETS_READ_CAPABILITY,))
+    ]
+
+
+def test_sheets_read_enforces_embedded_image_size_limit() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith(f"/spreadsheets/{SHEET_TOKEN}"):
+            return httpx.Response(200, json=_metadata())
+        if request.url.path.endswith("/sheets/query"):
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "sheets": [
+                            {
+                                "sheet_id": "sheet-images",
+                                "title": "图片表",
+                                "index": 0,
+                                "hidden": False,
+                                "resource_type": "sheet",
+                                "grid_properties": {
+                                    "row_count": 1,
+                                    "column_count": 1,
+                                },
+                            }
+                        ]
+                    },
+                },
+            )
+        if request.url.path.endswith("/values_batch_get"):
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "revision": 22,
+                        "valueRanges": [
+                            {
+                                "majorDimension": "ROWS",
+                                "range": "sheet-images!A1:A1",
+                                "revision": 22,
+                                "values": [
+                                    [
+                                        {
+                                            "fileToken": IMAGE_TOKEN,
+                                            "height": 100,
+                                            "type": "embed-image",
+                                            "width": 100,
+                                        }
+                                    ]
+                                ],
+                            }
+                        ],
+                    },
+                },
+            )
+        if request.url.path.endswith("/batch_get_tmp_download_url"):
+            return httpx.Response(
+                200,
+                json={
+                    "code": 0,
+                    "data": {
+                        "tmp_download_urls": [
+                            {
+                                "file_token": IMAGE_TOKEN,
+                                "tmp_download_url": TEMP_IMAGE_URL,
+                            }
+                        ]
+                    },
+                },
+            )
+        assert request.url.host == "internal-api-drive-stream.feishu.cn"
+        assert request.headers["range"] == "bytes=0-4"
+        return httpx.Response(
+            206,
+            headers={
+                "content-type": "image/png",
+                "content-range": "bytes 0-4/10",
+            },
+            content=b"12345",
+        )
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    client = FeishuSheetsClient(
+        lease_client=FakeLeaseClient(),
+        http_client=http,
+        max_asset_bytes=4,
+        max_total_asset_bytes=8,
+        media_download_interval_seconds=0,
+    )
+    result = asyncio.run(
+        client.read(
+            locator=f"https://example.feishu.cn/sheets/{SHEET_TOKEN}",
+            task_ref="task-large-image",
+            profile_ref=PROFILE_REF,
+        )
+    )
+    asyncio.run(http.aclose())
+
+    assert result.status is OperationStatus.RETRIEVAL_INCOMPLETE
+    assert result.asset_total_bytes == 0
+    assert result.assets[0].retrieval_complete is False
+    assert result.assets[0].byte_count == 10
+    assert result.assets[0].warning == "asset_size_limit_exceeded"
+    assert result.worksheets[0].warnings == ("asset_size_limit_exceeded:1",)
+    assert result.evidence.warnings == (
+        "sheet:sheet-images:asset_size_limit_exceeded:1",
+    )
 
 
 def test_wiki_sheet_read_resolves_online_and_uses_one_combined_lease() -> None:

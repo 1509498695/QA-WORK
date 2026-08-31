@@ -31,8 +31,11 @@ class FakeOAuthClient:
             "offline_access",
             "docx:document:readonly",
             "wiki:node:read",
+            "wiki:node:retrieve",
+            "wiki:node:create",
             "docs:document.media:download",
-            "sheets:spreadsheet:readonly",
+            "sheets:spreadsheet",
+            "drive:export:readonly",
         ),
     ) -> None:
         self.tenant_key = tenant_key
@@ -300,6 +303,80 @@ def test_oauth_without_confirmed_wiki_scope_does_not_create_profile(
         assert vault.summaries() == ()
 
 
+def test_oauth_without_confirmed_wiki_create_scope_does_not_create_profile(
+    tmp_path: Path,
+) -> None:
+    vault = _vault(tmp_path)
+    app = create_app(
+        Settings(
+            app_id="cli_test",
+            app_secret="secret",
+            allowed_tenant_key="tenant-a",
+        ),
+        FakeOAuthClient(
+            scopes=(
+                "auth:user.id:read",
+                "offline_access",
+                "docx:document:readonly",
+                "wiki:node:read",
+                "wiki:node:retrieve",
+                "docs:document.media:download",
+                "sheets:spreadsheet",
+                "drive:export:readonly",
+            )
+        ),
+        vault,
+    )
+
+    with TestClient(app) as client:
+        state = _start_state(client)
+        response = client.get(
+            "/callback",
+            params={"state": state, "code": "one-time-code"},
+        )
+
+        assert response.status_code == 403
+        assert "wiki_create_scope_missing" in response.text
+        assert vault.summaries() == ()
+
+
+def test_oauth_without_confirmed_wiki_child_list_scope_does_not_create_profile(
+    tmp_path: Path,
+) -> None:
+    vault = _vault(tmp_path)
+    app = create_app(
+        Settings(
+            app_id="cli_test",
+            app_secret="secret",
+            allowed_tenant_key="tenant-a",
+        ),
+        FakeOAuthClient(
+            scopes=(
+                "auth:user.id:read",
+                "offline_access",
+                "docx:document:readonly",
+                "wiki:node:read",
+                "wiki:node:create",
+                "docs:document.media:download",
+                "sheets:spreadsheet",
+                "drive:export:readonly",
+            )
+        ),
+        vault,
+    )
+
+    with TestClient(app) as client:
+        state = _start_state(client)
+        response = client.get(
+            "/callback",
+            params={"state": state, "code": "one-time-code"},
+        )
+
+        assert response.status_code == 403
+        assert "wiki_child_list_scope_missing" in response.text
+        assert vault.summaries() == ()
+
+
 def test_oauth_without_confirmed_docx_media_scope_does_not_create_profile(
     tmp_path: Path,
 ) -> None:
@@ -316,6 +393,8 @@ def test_oauth_without_confirmed_docx_media_scope_does_not_create_profile(
                 "offline_access",
                 "docx:document:readonly",
                 "wiki:node:read",
+                "wiki:node:retrieve",
+                "wiki:node:create",
             )
         ),
         vault,
@@ -349,6 +428,8 @@ def test_oauth_without_confirmed_sheets_scope_does_not_create_profile(
                 "offline_access",
                 "docx:document:readonly",
                 "wiki:node:read",
+                "wiki:node:retrieve",
+                "wiki:node:create",
                 "docs:document.media:download",
             )
         ),
@@ -364,6 +445,81 @@ def test_oauth_without_confirmed_sheets_scope_does_not_create_profile(
 
         assert response.status_code == 403
         assert "sheets_scope_missing" in response.text
+        assert vault.summaries() == ()
+
+
+def test_oauth_without_confirmed_sheets_write_scope_does_not_create_profile(
+    tmp_path: Path,
+) -> None:
+    vault = _vault(tmp_path)
+    app = create_app(
+        Settings(
+            app_id="cli_test",
+            app_secret="secret",
+            allowed_tenant_key="tenant-a",
+        ),
+        FakeOAuthClient(
+            scopes=(
+                "auth:user.id:read",
+                "offline_access",
+                "docx:document:readonly",
+                "wiki:node:read",
+                "wiki:node:retrieve",
+                "wiki:node:create",
+                "docs:document.media:download",
+                "sheets:spreadsheet:readonly",
+                "drive:export:readonly",
+            )
+        ),
+        vault,
+    )
+
+    with TestClient(app) as client:
+        state = _start_state(client)
+        response = client.get(
+            "/callback",
+            params={"state": state, "code": "one-time-code"},
+        )
+
+        assert response.status_code == 403
+        assert "sheets_write_scope_missing" in response.text
+        assert vault.summaries() == ()
+
+
+def test_oauth_without_confirmed_export_scope_does_not_create_profile(
+    tmp_path: Path,
+) -> None:
+    vault = _vault(tmp_path)
+    app = create_app(
+        Settings(
+            app_id="cli_test",
+            app_secret="secret",
+            allowed_tenant_key="tenant-a",
+        ),
+        FakeOAuthClient(
+            scopes=(
+                "auth:user.id:read",
+                "offline_access",
+                "docx:document:readonly",
+                "wiki:node:read",
+                "wiki:node:retrieve",
+                "wiki:node:create",
+                "docs:document.media:download",
+                "sheets:spreadsheet",
+            )
+        ),
+        vault,
+    )
+
+    with TestClient(app) as client:
+        state = _start_state(client)
+        response = client.get(
+            "/callback",
+            params={"state": state, "code": "one-time-code"},
+        )
+
+        assert response.status_code == 403
+        assert "sheets_export_scope_missing" in response.text
         assert vault.summaries() == ()
 
 

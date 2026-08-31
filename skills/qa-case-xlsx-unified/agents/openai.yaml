@@ -1,0 +1,15 @@
+interface:
+  display_name: "qa-case-xlsx-unified"
+  short_description: "Read Feishu sources and deliver auditable A:J test cases"
+  brand_color: "#3370FF"
+  default_prompt: "Use $qa-case-xlsx-unified to read my Feishu planning source, generate audited A:J test cases, and deliver them to my specified Feishu workbook."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "workspace_feishu"
+      description: "Workspace Feishu public read and managed Sheet delivery tools"
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "workspace_feishu"
+      description: "Workspace Feishu public read and managed Sheet delivery tools"

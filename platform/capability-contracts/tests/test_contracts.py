@@ -28,6 +28,12 @@ def test_provider_neutral_models_serialize_stable_values() -> None:
     ]
     assert evidence.retrieval_complete is True
     assert OperationStatus.OK.value == "ok"
+    assert OperationStatus.NO_CHANGE.value == "no_change"
+    assert CapabilityErrorCode.BASE_SPEC_REQUIRED.value == "base_spec_required"
+    assert (
+        CapabilityErrorCode.BASELINE_VERIFICATION_INCOMPLETE.value
+        == "baseline_verification_incomplete"
+    )
 
 
 def test_capability_error_exposes_only_structured_public_fields() -> None:

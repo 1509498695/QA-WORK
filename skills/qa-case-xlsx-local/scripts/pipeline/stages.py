@@ -66,29 +66,34 @@ def validate_base_cases(payload: dict[str, Any]) -> dict[str, Any]:
 
 def validate_module_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
     errors: list[str] = []
-    if payload.get("schema_version") != "1.0" or payload.get("project") != "SAMO":
-        errors.append("SAMO 模块快照 schema_version 或 project 无效")
+    project = str(payload.get("project") or "").strip()
+    if payload.get("schema_version") != "1.0" or not project:
+        errors.append("项目模块快照 schema_version 或 project 无效")
     modules = payload.get("modules")
     if not isinstance(modules, list):
-        errors.append("SAMO 模块快照 modules 必须是数组")
+        errors.append("项目模块快照 modules 必须是数组")
         modules = []
     if payload.get("module_count") != len(modules):
-        errors.append("SAMO 模块快照 module_count 与实际数量不一致")
+        errors.append("项目模块快照 module_count 与实际数量不一致")
     keys: list[str] = []
     for index, item in enumerate(modules):
         if not isinstance(item, dict):
-            errors.append(f"SAMO 模块快照 modules[{index}] 必须是 object")
+            errors.append(f"项目模块快照 modules[{index}] 必须是 object")
             continue
         key = str(item.get("module_key") or "")
         keys.append(key)
-        if not key.startswith("SAMO::") or not item.get("standard_name") or item.get("status") != "active":
-            errors.append(f"SAMO 模块快照 modules[{index}] 字段无效")
+        if (
+            not key.startswith(f"{project}::")
+            or not item.get("standard_name")
+            or item.get("status") != "active"
+        ):
+            errors.append(f"项目模块快照 modules[{index}] 字段无效")
     if duplicate_values(keys):
-        errors.append("SAMO 模块快照 module_key 重复")
+        errors.append("项目模块快照 module_key 重复")
     material = {key: value for key, value in payload.items() if key != "content_sha256"}
     if payload.get("content_sha256") != sha256_json(material):
-        errors.append("SAMO 模块快照 content_sha256 不一致")
-    return artifact_report("samo_project_modules", errors)
+        errors.append("项目模块快照 content_sha256 不一致")
+    return artifact_report("project_modules", errors)
 
 
 def validate_classification(

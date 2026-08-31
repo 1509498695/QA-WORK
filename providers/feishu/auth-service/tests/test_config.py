@@ -15,8 +15,12 @@ def test_settings_accept_minimal_local_configuration() -> None:
         "offline_access",
         "docx:document:readonly",
         "wiki:node:read",
+        "wiki:node:retrieve",
+        "wiki:node:create",
         "docs:document.media:download",
-        "sheets:spreadsheet:readonly",
+        "sheets:spreadsheet",
+        "sheets:spreadsheet:write_only",
+        "drive:export:readonly",
     )
     assert settings.allowed_tenant_key is None
     assert settings.authorization_url == "http://localhost:3000/oauth/start"

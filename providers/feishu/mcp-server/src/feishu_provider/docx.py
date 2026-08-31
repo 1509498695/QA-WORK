@@ -88,7 +88,7 @@ class DocxReadResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     provider_id: str = "feishu"
-    provider_version: str = "0.4.1"
+    provider_version: str = "0.7.0"
     operation_id: str = "feishu_docx_read"
     status: OperationStatus
     task_ref: str

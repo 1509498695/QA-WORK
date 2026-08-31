@@ -109,7 +109,8 @@ def test_admin_create_flow_is_preview_bound_redacted_and_read_back(tmp_path: Pat
         assert "无需填写" in form.text
         assert "wiki:node:read" in form.text
         assert "docs:document.media:download" in form.text
-        assert "sheets:spreadsheet:readonly" in form.text
+        assert "sheets:spreadsheet" in form.text
+        assert "drive:export:readonly" in form.text
 
         preview = _post(
             client,

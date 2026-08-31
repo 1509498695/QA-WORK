@@ -8,6 +8,13 @@ from pydantic import BaseModel, ConfigDict, Field
 class OperationStatus(StrEnum):
     OK = "ok"
     RETRIEVAL_INCOMPLETE = "retrieval_incomplete"
+    PREVIEW_READY = "preview_ready"
+    DELIVERED = "delivered"
+    DECLINED = "declined"
+    CANCELLED = "cancelled"
+    RECOVERY_REQUIRED = "recovery_required"
+    VERIFICATION_INCOMPLETE = "verification_incomplete"
+    NO_CHANGE = "no_change"
 
 
 class OperationEvidence(BaseModel):
