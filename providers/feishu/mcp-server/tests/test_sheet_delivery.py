@@ -59,6 +59,8 @@ def test_delivery_spec_normalizes_hash_summary_and_remote_values() -> None:
     assert first.content_hash == second.content_hash
     assert first.remote_values() == [["标题", "值"], [1, "=A2+1"]]
     assert isinstance(first.values[1][1], FormulaCell)
+    assert first.has_formula_values is True
+    assert first.requires_typed_values_write is True
     assert first.summary() == {
         "schema_version": SHEET_DELIVERY_SCHEMA_VERSION,
         "content_hash": first.content_hash,
@@ -87,10 +89,22 @@ def test_remote_values_serializes_blank_cells_as_feishu_empty_strings() -> None:
         [{"value": True}, {"value": 2}],
     ]
     assert spec.has_boolean_values is True
+    assert spec.has_formula_values is False
+    assert spec.requires_typed_values_write is True
 
 
-def test_delivery_spec_without_boolean_does_not_require_typed_write() -> None:
+def test_delivery_spec_formula_requires_typed_write_without_boolean() -> None:
     assert _spec().has_boolean_values is False
+    assert _spec().has_formula_values is True
+    assert _spec().requires_typed_values_write is True
+
+
+def test_plain_delivery_spec_does_not_require_typed_write() -> None:
+    spec = _spec(values=[["标题", "值"], [1, 2]])
+
+    assert spec.has_boolean_values is False
+    assert spec.has_formula_values is False
+    assert spec.requires_typed_values_write is False
 
 
 @pytest.mark.parametrize(

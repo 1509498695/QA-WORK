@@ -69,7 +69,7 @@
     },
     {
       "path": "src/feishu_provider/feishu_sheet_gateway.py",
-      "sha256": "6c8bf73a658c57972fd0c9649217bd8d826b3026866da73d03a90f978ac2abcf"
+      "sha256": "0298d7c66e0b4db2480d99ef0b36b9a00a9744a489e1884d6ba7679a09ef6e27"
     },
     {
       "path": "src/feishu_provider/lease_client.py",
@@ -97,7 +97,7 @@
     },
     {
       "path": "src/feishu_provider/sheet_delivery.py",
-      "sha256": "f0fd463096ec9a0ff867751a2cc842538f84087ad2d672ea2cff86d7a05ac806"
+      "sha256": "7dc86a20e755b3a1ca0472f48aece425866042db5bbeeff5bd92eadfe8e3c420"
     },
     {
       "path": "src/feishu_provider/sheet_revision.py",
@@ -109,7 +109,7 @@
     },
     {
       "path": "src/feishu_provider/xlsx_verify.py",
-      "sha256": "8b675da5f750d63f280329dc045704b8820806c38040f10d7162868dbc9177ce"
+      "sha256": "196a215a188057e026add7b6392864daaab8290b0e7078cd41efc88af03f54ad"
     }
   ]
 }

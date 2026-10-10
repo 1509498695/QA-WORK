@@ -5,13 +5,16 @@
 - [公共能力](./platform/CONTEXT.md) — 定义业务 Skill 与外部系统 Provider 共享的中立操作、状态和证据语言。
 - [Feishu Provider](./providers/feishu/CONTEXT.md) — 定义飞书身份、授权、租约和只读资源语义。
 - [qa-case-xlsx-local](./skills/qa-case-xlsx-local/CONTEXT.md) — 定义本地策划案、本地测试用例和 Excel 审计交付。
+- [qa-case-xlsx-unified](./skills/qa-case-xlsx-unified/CONTEXT.md) — 定义飞书策划来源、A:J 用例规范和受控在线交付。
 
 ## Relationships
 
 - Feishu Provider 实现公共能力契约，同时独立拥有飞书资源类型、定位规则和私有授权协议。
 - Feishu 私有协议只在授权控制面与 MCP Server 之间使用，不对业务 Skill 构成公共合同。
+- `platform/control-plane` 拥有真实平台账号、会话、唯一团队成员资格、团队/平台角色与四个主页面；Provider 配置入口可以在该门户中被发现，但配置字段、Secret、OAuth Token 和写入合同继续由对应 Provider 独立拥有。
 - 业务 Skill 只能消费 Provider 的公开语义操作，不导入 Provider 私有源码、身份或协议。
 - `qa-case-xlsx-local` 当前保持纯本地边界，不消费 Feishu Provider 或其他网络 Provider。
+- `qa-case-xlsx-unified` 消费 Feishu Provider 的公开读取与受管工作表能力，但独立拥有用例生成与业务交付判断。
 - 公共能力上下文不依赖任何业务 Skill 的来源模型、规则、用例字段或交付格式。
 
 ## Reference Assessments

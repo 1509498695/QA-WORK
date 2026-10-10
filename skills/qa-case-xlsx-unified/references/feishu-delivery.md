@@ -2,14 +2,22 @@
 
 ## Sheet 布局
 
-交付矩形固定从 A1 开始：
+默认模板登记在 [default-template.json](default-template.json)。每次生成先通过 Workspace Feishu Provider 只读刷新该定位符并保存模板回执；配置里的历史 revision/hash 只是漂移对照。模板对象永远只读，也不能作为策划来源或交付目标。
 
-- 第 1 行：需求标题，合并 `A1:J1`；
-- 第 2 行：固定 A:J 表头；
-- 第 3 行起：按最终业务顺序写入用例；
-- 冻结前两行；不创建 Excel Table、筛选主题、条件格式、数据验证、批注、图表或嵌入媒体。
+交付矩形固定从 A1 开始。默认标题格式为 `<需求名>用例-qa-case-xlsx-unified-<YYYYMMDD>`；用户明确指定标题时使用其原文：
+
+- 第 1 行：本次需求标题，合并 `A1:J1`；
+- 第 2–8 行：DRI、用例总数、策划来源/模板链接、P/F/D/N/A 统计、执行率与通过率；
+- 第 9–10 行：双层 A:J 表头；
+- 第 11 行起：按最终业务顺序写入用例，A 列使用 `=ROW()-10`；
+- B/C 仅对连续相同的一级/二级模块分组做纵向合并，二级模块分组不能跨一级模块；D:J 永不因模块分组而合并；
+- 冻结前十行；不创建 Excel Table、筛选主题、条件格式、数据验证、批注、图表或嵌入媒体。
+
+用例总数与 P/F/D/N/A 统计公式必须按本次实际末行动态生成，不能复制模板中的固定末行。执行率与通过率引用统计区；用例为空时构建直接失败。
 
 Provider v1 当前不支持 `wrap_text=true`，因此交付规范不声明自动换行。操作步骤保留真实换行，列宽和行高使用确定值；这是一项展示限制，不得通过原子 OpenAPI 补写未验证样式。
+
+Provider v1 同样不声明模板中的下拉数据验证、单元格内局部富文本或百分比数字格式。交付保留等价的纯文本、颜色和公式，不能绕过 Provider 补写这些能力。
 
 ## 确定性构建
 
@@ -19,15 +27,19 @@ Provider v1 当前不支持 `wrap_text=true`，因此交付规范不声明自动
 & <bundled-python> <skill-root>\scripts\build_feishu_case_spec.py build `
   --final-cases <final_cases.json> `
   --title <title> `
+  --source-url <source-url> `
   --out <sheet-spec.json>
 
 & <bundled-python> <skill-root>\scripts\build_feishu_case_spec.py verify `
   --final-cases <final_cases.json> `
   --title <title> `
+  --source-url <source-url> `
   --spec <sheet-spec.json>
 ```
 
-脚本拒绝空用例、非连续编号、非法优先级/结果码、未编号步骤、非法备注、超长文本以及超过 Provider 5,000 行或 200,000 单元格的交付。
+多个来源重复传入 `--source-url`。`--template-url` 仅用于用户本次明确覆盖模板的情况，且 build/verify 必须使用同一值。
+
+脚本拒绝空用例、非连续编号、非法优先级/结果码、未编号步骤、非法备注、超长文本、静态公式范围、模块合并后的语义漂移，以及超过 Provider 5,000 行或 200,000 单元格的交付。
 
 ## 首次交付
 
@@ -51,8 +63,8 @@ Provider v1 当前不支持 `wrap_text=true`，因此交付规范不声明自动
 
 Provider 的 API/XLSX 双读证明结构交付；业务 Skill 还要使用返回的精确 Sheet ID 进行 A:J 逐格比较：
 
-- 标题、表头和用例行数一致；
-- 每个 A:J 值与规范一致，数字编号允许远端以等价数值表示；
+- A1:J10 的标题、统计区、参考区、双层表头、公式和合并结构一致；
+- 第 11 行起的用例行数一致；A 列编号公式允许远端以公式或等价计算值表示，B/C 合并单元格先向下语义展开，再逐个比较 A:J；
 - 工作簿 token、可用时的 Wiki 节点 Token、Sheet ID、Sheet 标题和 revision 对应同一交付对象；
 - 来源 Sheet、其他 Sheet 的身份和数量没有因交付被替换。
 
@@ -60,4 +72,4 @@ Provider 的 API/XLSX 双读证明结构交付；业务 Skill 还要使用返回
 
 ## 后续修订
 
-只有调用方仍持有最近一次完整 `sheet-spec.json` 时才允许修订。解析精确链接后，使用上一规范作为 `base_spec`、新规范作为 `next_spec` 单次调用修订工具；同一不可变请求失败恢复时不重新确认、不切换目标、不重新生成规范。
+只有调用方仍持有最近一次完整 `sheet-spec.json` 时才允许修订。解析精确链接后，使用上一规范作为 `base_spec`、按默认模板构造的新规范作为 `next_spec` 单次调用修订工具；不能新建替代工作簿或替代 Sheet。模板采用只改变版式、公式和允许的 B/C 模块合并，不得改变当前用例语义。同一不可变请求失败恢复时不重新确认、不切换目标、不重新生成规范。

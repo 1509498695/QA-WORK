@@ -5,6 +5,8 @@ import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -108,6 +110,15 @@ def _boolean_spec() -> SheetDeliverySpec:
         {
             **_spec().model_dump(mode="json"),
             "values": [["布尔", None], [True, 2]],
+        }
+    )
+
+
+def _formula_spec() -> SheetDeliverySpec:
+    return SheetDeliverySpec.model_validate(
+        {
+            **_spec().model_dump(mode="json"),
+            "values": [["公式", "结果"], [1, {"formula": "=A2+1"}]],
         }
     )
 
@@ -359,6 +370,38 @@ def test_create_preview_requires_typed_write_scope_for_boolean_values() -> None:
             placement_mode=PlacementMode.CREATE_NEW_SHEET,
             requested_sheet_title="布尔用例",
             spec=_boolean_spec(),
+        )
+    )
+    asyncio.run(http.aclose())
+
+    assert lease.calls[0][2] == (
+        SHEETS_EXPORT_VERIFY_CAPABILITY,
+        SHEETS_MANAGED_WRITE_CAPABILITY,
+        SHEETS_READ_CAPABILITY,
+        SHEETS_TYPED_VALUES_WRITE_CAPABILITY,
+    )
+
+
+def test_create_preview_requires_typed_write_scope_for_formula_values() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith(f"/spreadsheets/{SHEET_TOKEN}"):
+            return httpx.Response(200, json=_metadata())
+        assert request.url.path.endswith("/sheets/query")
+        return httpx.Response(
+            200, json={"code": 0, "data": {"sheets": [_sheet()]}}
+        )
+
+    lease = FakeLeaseClient()
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    gateway = FeishuManagedSheetsGateway(lease_client=lease, http_client=http)
+    asyncio.run(
+        gateway.preview(
+            locator=f"https://example.feishu.cn/sheets/{SHEET_TOKEN}",
+            task_ref="task-formula-preview",
+            profile_ref=PROFILE_REF,
+            placement_mode=PlacementMode.CREATE_NEW_SHEET,
+            requested_sheet_title="公式用例",
+            spec=_formula_spec(),
         )
     )
     asyncio.run(http.aclose())
@@ -971,6 +1014,143 @@ def test_values_write_with_boolean_uses_typed_cell_tool() -> None:
     asyncio.run(http.aclose())
 
     assert revision is None
+
+
+def test_values_write_with_formula_uses_typed_cell_tool() -> None:
+    spec = _formula_spec()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path.endswith(
+            f"/sheet_ai/v2/spreadsheets/{SHEET_TOKEN}/tools/invoke_write"
+        )
+        body = json.loads(request.content)
+        assert body["tool_name"] == "set_cell_range"
+        tool_input = json.loads(body["input"])
+        assert tool_input == {
+            "excel_id": SHEET_TOKEN,
+            "sheet_id": SHEET_ID,
+            "range": "A1:B2",
+            "cells": [
+                [{"value": "公式"}, {"value": "结果"}],
+                [{"value": 1}, {"formula": "=A2+1"}],
+            ],
+        }
+        return httpx.Response(
+            200,
+            json={"code": 0, "msg": "success", "data": {"output": "{}"}},
+        )
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    gateway = FeishuManagedSheetsGateway(
+        lease_client=FakeLeaseClient(), http_client=http
+    )
+    revision = asyncio.run(
+        gateway._write_values(
+            _target(),
+            spec,
+            {"Authorization": "Bearer test"},
+        )
+    )
+    asyncio.run(http.aclose())
+
+    assert revision is None
+
+
+def test_revision_recovery_reasserts_formula_cells_with_typed_write(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base = _spec()
+    next_spec = _formula_spec()
+    diff = build_revision_diff(base, next_spec)
+    now = datetime(2026, 8, 25, 0, 0, tzinfo=UTC)
+    registration = ManagedSheetRegistration(
+        registration_ref="managed_0123456789abcdef0123456789abcdef",
+        initial_operation_ref="wop_0123456789abcdef0123456789abcdef",
+        profile_ref=PROFILE_REF,
+        target=_target(),
+        current_version=1,
+        spec_hash=base.content_hash,
+        spec_summary=base.summary(),
+        delivery_hash="sha256:" + "1" * 64,
+        remote_revision="20",
+        state=OperationState.DELIVERED,
+        created_at=now,
+        updated_at=now,
+    )
+    record = RevisionRecord(
+        operation_ref="rev_0123456789abcdef0123456789abcdef",
+        registration_ref=registration.registration_ref,
+        task_ref="task-formula-recovery",
+        base_spec_hash=base.content_hash,
+        next_spec_hash=next_spec.content_hash,
+        next_spec_summary=next_spec.summary(),
+        preview_hash="sha256:" + "2" * 64,
+        diff_summary=diff.model_dump(mode="json"),
+        candidate_version=2,
+        state=RevisionState.VERIFICATION_INCOMPLETE,
+        last_completed_step=RevisionStep.NEXT_MERGES_WRITTEN,
+        ambiguous=False,
+        remote_revision="30",
+        diagnostic_code="revision_api_verification_incomplete",
+        base_api_hash="sha256:" + "3" * 64,
+        base_export_hash="sha256:" + "4" * 64,
+        delivery_hash=None,
+        created_at=now,
+        expires_at=now + timedelta(minutes=10),
+        updated_at=now,
+    )
+    lease = FakeLeaseClient()
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _: None))
+    gateway = FeishuManagedSheetsGateway(lease_client=lease, http_client=http)
+    refreshed_target = _target()
+    typed_write = AsyncMock(return_value="31")
+    monkeypatch.setattr(
+        gateway,
+        "_refresh_managed_target",
+        AsyncMock(return_value=refreshed_target),
+    )
+    monkeypatch.setattr(gateway, "_write_typed_values", typed_write)
+    monkeypatch.setattr(
+        gateway,
+        "_verify_api",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                content_hash="sha256:" + "5" * 64,
+                revision="31",
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        gateway,
+        "_verify_revision_export",
+        AsyncMock(return_value="sha256:" + "6" * 64),
+    )
+
+    proof = asyncio.run(
+        gateway.reconcile_revision_final(
+            record=record,
+            registration=registration,
+            base_spec=base,
+            next_spec=next_spec,
+            diff=diff,
+        )
+    )
+    asyncio.run(http.aclose())
+
+    assert proof is not None
+    assert proof.remote_revision == "31"
+    assert proof.warnings == (
+        "typed_values_reasserted_during_reconciliation",
+    )
+    assert typed_write.await_count == 1
+    assert typed_write.await_args.args[:2] == (refreshed_target, next_spec)
+    assert lease.calls[-1][2] == (
+        SHEETS_EXPORT_VERIFY_CAPABILITY,
+        SHEETS_READ_CAPABILITY,
+        SHEETS_MANAGED_WRITE_CAPABILITY,
+        SHEETS_TYPED_VALUES_WRITE_CAPABILITY,
+    )
 
 
 def test_typed_values_write_preserves_missing_scope_platform_rejection() -> None:

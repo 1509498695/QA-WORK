@@ -62,6 +62,8 @@ try {
         'run', '--locked', 'python', '-m', 'compileall', '-q',
         'platform/capability-contracts/src',
         'platform/capability-contracts/tests',
+        'platform/control-plane/src',
+        'platform/control-plane/tests',
         'providers/feishu/protocol/src',
         'providers/feishu/protocol/tests',
         'providers/feishu/auth-service/src',

@@ -197,6 +197,16 @@ def _without_fills(payload: bytes, *coordinates: str) -> bytes:
     return output.getvalue()
 
 
+def _formula_stored_as_text(payload: bytes, coordinate: str) -> bytes:
+    workbook = load_workbook(BytesIO(payload))
+    worksheet = workbook["交付"]
+    worksheet[coordinate].data_type = "s"
+    output = BytesIO()
+    workbook.save(output)
+    workbook.close()
+    return output.getvalue()
+
+
 def test_export_verification_proves_values_styles_dimensions_and_freeze() -> None:
     spec = _spec()
 
@@ -211,6 +221,19 @@ def test_export_verification_proves_values_styles_dimensions_and_freeze() -> Non
     assert result.checked_styles == 4
     assert result.checked_row_dimensions == 2
     assert result.checked_column_dimensions == 2
+
+
+def test_export_verification_rejects_formula_stored_as_literal_text() -> None:
+    spec = _spec()
+
+    with pytest.raises(CapabilityError) as error:
+        verify_sheet_export(
+            _formula_stored_as_text(_workbook_bytes(spec), "B2"),
+            target_title="交付",
+            spec=spec,
+        )
+
+    assert "cell_formula_type:1:1" in error.value.details["mismatches"]
 
 
 def test_export_verification_uses_normal_font_for_column_width_units() -> None:

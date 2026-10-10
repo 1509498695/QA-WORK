@@ -26,6 +26,14 @@ _Avoid_：Docx Block 返回、Sheet 下载文件、本地来源伪装
 由已校验 `final_cases.json` 确定性构造的 `workspace-feishu/sheet-delivery/v1` A:J 单 Sheet 完整目标状态。
 _Avoid_：原子 API body、XLSX 上传、样式补丁
 
+**默认用例模板**：
+用户指定并登记在 `references/default-template.json`、每次运行都通过 Workspace Feishu 重新读取的只读版式参考。
+_Avoid_：缓存模板、交付目标、策划来源
+
+**模板采用**：
+复用默认模板的标题/DRI/统计/参考区、双层表头、动态公式与 B/C 模块分组合并，同时保持本次 `final_cases.json` 业务语义不变。
+_Avoid_：复制模板示例、固定统计末行、改写用例事实
+
 **写入目标**：
 用户本次明确指定的飞书工作簿及经预览确定的新 Sheet 或内容空白 Sheet。
 _Avoid_：来源对象、最近写入对象、历史登记

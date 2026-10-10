@@ -11,7 +11,8 @@ description: 读取用户明确提供的飞书 Docx、Wiki 或 Sheets 策划来�
 
 - 飞书读取和写入只使用已安装 `workspace_feishu` MCP 的公开工具；不调用 `lg-feishu`，不导入 Provider 源码、运行时、凭据或本机状态。
 - 不修改 `qa-case-xlsx-local` 的纯本地合同。纯本地来源和本地 `.xlsx` 交付由该 Skill 独立处理，不静默转发。
-- 只读取用户本次明确提供的飞书定位符，不跟随文档中的外链，不扫描历史任务猜测来源。
+- 策划来源只读取用户本次明确提供的飞书定位符，不跟随文档中的外链，不扫描历史任务猜测来源。
+- 默认把 [default-template.json](references/default-template.json) 登记的飞书工作簿作为只读版式参考。模板不是策划来源或交付目标，不得修改；用户本次明确提供另一模板时只覆盖本次运行，不改默认登记。
 - 只写用户本次明确指定的 Sheets/Wiki 工作簿；用户明确选择 `create_new_workbook` 时，只在其指定的 Wiki 父节点下创建一个工作簿。来源链接、历史交付链接或模型推断不能自动成为写入目标。
 - 当前正式交付一次只管理一个 Sheet；不删除、清空、改名或覆盖其他 Sheet。
 - 正式交付必须经过 Provider 的一次 MCP 确认卡片。聊天中的“确认”不能替代卡片，Skill 不得代替用户接受。
@@ -19,7 +20,7 @@ description: 读取用户明确提供的飞书 Docx、Wiki 或 Sheets 策划来�
 ## 运行前
 
 1. 完整读取本文件。
-2. 读取 [unified-source-v2.md](references/unified-source-v2.md)、[generation-contract.md](references/generation-contract.md) 和 [feishu-delivery.md](references/feishu-delivery.md)。
+2. 读取 [default-template.json](references/default-template.json)、[unified-source-v2.md](references/unified-source-v2.md)、[generation-contract.md](references/generation-contract.md) 和 [feishu-delivery.md](references/feishu-delivery.md)。
 3. 完整读取已安装 `workspace-feishu:feishu-read` 与 `workspace-feishu:feishu-write` Skill；授权问题按 `workspace-feishu:feishu-auth` 处理。
 4. 读取 `qa-case-xlsx-local` 的 `generation-blueprint.md`、`humanization.md`、项目路由和发布规则索引，只复用其公开生成规则与校验 CLI；不得调用其本地来源提取或本地工作簿构建阶段处理飞书内容。
 5. 调用工作区依赖加载器，使用返回的 Python 运行本 Skill 的脚本和生成门禁。
@@ -30,12 +31,16 @@ description: 读取用户明确提供的飞书 Docx、Wiki 或 Sheets 策划来�
 - 一个明确的飞书 Sheets/Wiki 目标工作簿链接；或一个明确的不带 `sheet=` 的 Wiki 父节点链接。
 - 在现有工作簿新建 Sheet 时提供明确唯一的 Sheet 标题；在 Wiki 父节点下新建文件时提供明确唯一的工作簿文件名。未给出时可建议 `<需求名>-测试用例-<YYYYMMDD>`，但必须在预览前让用户看到实际名称。
 
+模板定位符不是最小输入：默认读取 `default-template.json` 登记的模板；仅当用户本次明确指定其他模板时才使用覆盖值。
+
 来源与目标可以位于同一工作簿，但必须保持不同 Sheet。若目标 URL 带 `sheet=` 且用户要求新建 Sheet，该选择器只定位工作簿，不能覆盖被选中的 Sheet。
 
 ## 标准流程
 
 ### 1. 固化飞书来源
 
+- 先用 `workspace-feishu:feishu-read` 重新读取本次有效模板定位符。必须满足 `status=ok`、`retrieval_complete=true`、对象类型为 Sheet、存在唯一模板工作表且 A:J 版式与登记合同兼容；把本次 revision、内容哈希和对象身份保存为模板回执。`last_verified_snapshot` 只用于漂移对照，不能跳过实时读取。
+- 模板只提供标题/DRI/统计/参考区、双层表头、列宽行高、颜色、公式模式和模块分组合并规则。当前策划事实、模块归类、用例文本、用例数量、优先级与备注始终以本次生成产物为准；不得复制模板示例用例、旧编号、旧链接或业务结论。
 - 为本次运行生成不含业务内容的稳定 `task_ref`，并按统一来源 v2 契约保存来源回执、规范化快照和内容哈希。
 - Wiki 类型不明时按 `workspace-feishu:feishu-read` 路由；读取结果必须保留真实对象类型、修订、范围、资产引用和完整性警告。
 - `status=ok` 且来源级 `retrieval_complete=true` 才可进入正式生成。授权缺失、类型不明、任一来源读取不完整或视觉资产未复核时停止在来源门禁，不预览远端写入。
@@ -55,11 +60,12 @@ description: 读取用户明确提供的飞书 Docx、Wiki 或 Sheets 策划来�
 ```powershell
 & <bundled-python> <skill-root>\scripts\build_feishu_case_spec.py build `
   --final-cases <task-root>\audit\final_cases.json `
-  --title <需求名-测试用例> `
+  --title <需求名用例-qa-case-xlsx-unified-YYYYMMDD> `
+  --source-url <本次飞书策划来源链接> `
   --out <task-root>\delivery\sheet-spec.json
 ```
 
-然后执行 `verify` 子命令对 `final_cases.json` 与规范做确定性回读。脚本只构造 JSON，不访问网络，也不产生本地 `.xlsx`。
+多个来源重复传入 `--source-url`。只有用户明确指定其他模板时才传 `--template-url`；否则构建器使用已登记默认模板。随后以完全相同的参数执行 `verify` 子命令，对 `final_cases.json`、标题、来源和模板与规范做确定性回读。脚本只构造 JSON，不访问网络，也不产生本地 `.xlsx`。
 
 ### 4. 预览并交付
 
@@ -71,13 +77,14 @@ description: 读取用户明确提供的飞书 Docx、Wiki 或 Sheets 策划来�
 ### 5. 同对象回读
 
 - 只有 Provider 返回 `status=delivered`、`last_completed_step=export_verified` 且 `evidence.retrieval_complete=true`，才进入最终回读。
-- 使用返回的新工作簿 token/Wiki 节点身份和精确 Sheet ID 再次只读，逐格核对 A:J 标题、表头、用例数和值，并确认工作簿 token、Wiki 节点、Sheet ID 与远端 revision 没有切换。
+- 使用返回的新工作簿 token/Wiki 节点身份和精确 Sheet ID 再次只读，核对 A1:J10 模板区、动态统计公式、从第 11 行开始的 A:J 用例数和值，并在比较前语义展开 B/C 连续模块合并；确认工作簿 token、Wiki 节点、Sheet ID 与远端 revision 没有切换。
 - 把交付结果与回读哈希写入本次审计目录；只有同对象语义回读一致才报告“飞书用例已交付”。
 
 ## 失败与恢复
 
 - `auth_required`：停止并交给 `workspace-feishu:feishu-auth`；授权后重做原读取或零写入预览。
 - `retrieval_incomplete`：保留已读证据和警告，不生成正式交付，也不忽略该来源。
+- 默认或覆盖模板读取不完整、对象身份不符或 A:J 版式不兼容：停止在模板门禁；不得退回旧两行版式、缓存快照或模板示例内容继续交付。
 - `declined` / `cancelled`：停止，零远端写入。
 - `recovery_required` / `verification_incomplete`：保留原操作、任务、父节点/工作簿目标和完整规范，只允许同操作对账或安全前向恢复；不重新预览、不换 Sheet/目录、不新建替代用例表或替代工作簿。
 - `preview_expired`、目标漂移或规范改变：重新构建规范和预览，并重新取得 MCP 卡片确认。

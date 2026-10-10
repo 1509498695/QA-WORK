@@ -532,12 +532,15 @@ class FeishuManagedSheetsGateway:
         repair_retired_styles = _requires_retired_style_repair(
             record.diagnostic_code
         )
+        repair_typed_values = next_spec.requires_typed_values_write
         capabilities = [
             SHEETS_EXPORT_VERIFY_CAPABILITY,
             SHEETS_READ_CAPABILITY,
         ]
-        if repair_retired_styles:
+        if repair_retired_styles or repair_typed_values:
             capabilities.append(SHEETS_MANAGED_WRITE_CAPABILITY)
+        if repair_typed_values:
+            capabilities.append(SHEETS_TYPED_VALUES_WRITE_CAPABILITY)
         lease = await self._lease_client.issue(
             task_ref=record.task_ref,
             profile_ref=registration.profile_ref,
@@ -559,6 +562,8 @@ class FeishuManagedSheetsGateway:
                 revision_retired_ranges(base_spec, next_spec),
                 headers,
             )
+        if repair_typed_values:
+            await self._write_typed_values(target, next_spec, headers)
         try:
             api_proof = await self._verify_api(target, next_spec, headers)
             export_hash = await self._verify_revision_export(
@@ -573,17 +578,26 @@ class FeishuManagedSheetsGateway:
             return None
         except CapabilityError:
             return None
+        recovery_warnings: list[str] = []
+        if repair_retired_styles:
+            recovery_warnings.append(
+                "retired_styles_normalized_during_reconciliation"
+            )
+        if repair_typed_values:
+            recovery_warnings.append(
+                "typed_values_reasserted_during_reconciliation"
+            )
+        if not recovery_warnings:
+            recovery_warnings.append(
+                "ambiguous_revision_reconciled_by_double_readback"
+            )
         return RevisionProof(
             target=target,
             api_hash=api_proof.content_hash,
             export_hash=export_hash,
             remote_revision=api_proof.revision,
             observed_at=datetime.now(UTC),
-            warnings=(
-                "retired_styles_normalized_during_reconciliation"
-                if repair_retired_styles
-                else "ambiguous_revision_reconciled_by_double_readback"
-            ,),
+            warnings=tuple(recovery_warnings),
         )
 
     async def execute(
@@ -1449,7 +1463,7 @@ class FeishuManagedSheetsGateway:
         spec: SheetDeliverySpec,
         headers: dict[str, str],
     ) -> str | None:
-        if spec.has_boolean_values:
+        if spec.requires_typed_values_write:
             return await self._write_typed_values(target, spec, headers)
         data = await self._mutate_json(
             VALUES_ENDPOINT.format(
@@ -2318,7 +2332,7 @@ def _delivery_capabilities(spec: SheetDeliverySpec) -> tuple[str, ...]:
         SHEETS_MANAGED_WRITE_CAPABILITY,
         SHEETS_READ_CAPABILITY,
     ]
-    if spec.has_boolean_values:
+    if spec.requires_typed_values_write:
         capabilities.append(SHEETS_TYPED_VALUES_WRITE_CAPABILITY)
     return tuple(capabilities)
 

@@ -16,6 +16,8 @@ class SkillStructureTests(unittest.TestCase):
         self.assertIn("不调用 `lg-feishu`", content)
         self.assertIn("不修改 `qa-case-xlsx-local`", content)
         self.assertIn("同对象回读", content)
+        self.assertIn("默认模板", content)
+        self.assertIn("只读版式参考", content)
         self.assertNotIn("TODO", content)
 
     def test_required_resources_exist(self) -> None:
@@ -23,6 +25,7 @@ class SkillStructureTests(unittest.TestCase):
             SKILL_ROOT / "references" / "unified-source-v2.md",
             SKILL_ROOT / "references" / "generation-contract.md",
             SKILL_ROOT / "references" / "feishu-delivery.md",
+            SKILL_ROOT / "references" / "default-template.json",
             SKILL_ROOT / "references" / "project-modules.json",
             SKILL_ROOT / "references" / "provisional-modules.json",
             SKILL_ROOT / "scripts" / "build_feishu_case_spec.py",

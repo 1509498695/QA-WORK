@@ -1,0 +1,37 @@
+{
+  "schema_version": "qa-case-xlsx-unified/default-template/v1",
+  "role": "read_only_layout_reference",
+  "locator": "https://t6bdpf8yjg.feishu.cn/wiki/Y5F6wI4tRixB84kzTHhcIYo2nFg",
+  "expected_object": {
+    "wiki_node_token": "Y5F6wI4tRixB84kzTHhcIYo2nFg",
+    "object_type": "sheet",
+    "spreadsheet_token": "Y4kVsELeXhYZQptc5rCc8Vcsnfd",
+    "workbook_title": "用例模板",
+    "worksheet_title": "模板"
+  },
+  "layout_contract": {
+    "layout_version": "qa-case-template/v1",
+    "column_count": 10,
+    "case_body_start_row": 11,
+    "frozen_row_count": 10,
+    "case_columns": [
+      "用例编号",
+      "一级模块",
+      "二级模块",
+      "检查点",
+      "前置条件",
+      "操作步骤",
+      "预期结果",
+      "优先级",
+      "测试结果",
+      "备注"
+    ]
+  },
+  "last_verified_snapshot": {
+    "verified_on": "2026-09-01",
+    "revision": "154",
+    "content_sha256": "sha256:16e1689e41337294876736f82ec3826b8d0719a17e607c4cb2fc509fcb53a780",
+    "retrieval_complete": true
+  },
+  "freshness_policy": "Every generation run must read the locator again with workspace_feishu. This snapshot is audit context, not permission to skip live readback."
+}

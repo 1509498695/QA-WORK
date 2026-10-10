@@ -5,6 +5,7 @@ description = "Virtual development workspace for QA Skill Hub components"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "qa-skillhub-capability-contracts",
+    "qa-skillhub-control-plane",
     "workspace-feishu-auth-service",
     "workspace-feishu-mcp-server",
     "workspace-feishu-protocol",
@@ -21,6 +22,7 @@ package = false
 [tool.uv.workspace]
 members = [
     "platform/capability-contracts",
+    "platform/control-plane",
     "providers/feishu/protocol",
     "providers/feishu/auth-service",
     "providers/feishu/mcp-server",
@@ -32,6 +34,7 @@ exclude = [
 
 [tool.uv.sources]
 qa-skillhub-capability-contracts = { workspace = true }
+qa-skillhub-control-plane = { workspace = true }
 workspace-feishu-auth-service = { workspace = true }
 workspace-feishu-mcp-server = { workspace = true }
 workspace-feishu-protocol = { workspace = true }
@@ -40,6 +43,7 @@ workspace-feishu-protocol = { workspace = true }
 addopts = "-q"
 testpaths = [
     "platform/capability-contracts/tests",
+    "platform/control-plane/tests",
     "providers/feishu/protocol/tests",
     "providers/feishu/auth-service/tests",
     "providers/feishu/mcp-server/tests",

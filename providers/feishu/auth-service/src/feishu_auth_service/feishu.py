@@ -226,6 +226,7 @@ class FeishuOAuthClient:
                 open_id=str(data["open_id"]),
                 union_id=_optional_text(data.get("union_id")),
                 name=_optional_text(data.get("name")),
+                avatar_url=_optional_text(data.get("avatar_url")),
             )
         except KeyError as exc:
             payload.clear()

@@ -385,6 +385,22 @@ class SheetDeliverySpec(BaseModel):
             isinstance(cell, bool) for row in self.values for cell in row
         )
 
+    @property
+    def has_formula_values(self) -> bool:
+        return any(
+            isinstance(cell, FormulaCell) for row in self.values for cell in row
+        )
+
+    @property
+    def requires_typed_values_write(self) -> bool:
+        """Return whether Feishu must receive typed cell payloads.
+
+        The generic values endpoint accepts formulas as strings, but that can
+        leave them as literal text. Formula and boolean cells therefore use the
+        typed ``set_cell_range`` contract.
+        """
+        return self.has_boolean_values or self.has_formula_values
+
     def resolved_style_ranges(self) -> tuple[tuple[GridRange, CellStyle], ...]:
         return tuple(
             (item.range, item.style.resolve(self.base_style))

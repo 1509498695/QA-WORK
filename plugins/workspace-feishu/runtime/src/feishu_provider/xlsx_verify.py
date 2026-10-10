@@ -16,6 +16,7 @@ from openpyxl.utils.exceptions import InvalidFileException
 from feishu_provider.sheet_delivery import (
     BorderType,
     CellStyle,
+    FormulaCell,
     GridRange,
     HorizontalAlignment,
     SheetDeliverySpec,
@@ -95,13 +96,20 @@ def verify_sheet_export(
         expected_values = spec.remote_values()
         for row_index in range(spec.row_count):
             for column_index in range(spec.column_count):
-                actual = worksheet.cell(row_index + 1, column_index + 1).value
+                cell = worksheet.cell(row_index + 1, column_index + 1)
+                actual = cell.value
                 expected = expected_values[row_index][column_index]
                 if not _values_equal(actual, expected):
                     mismatches.append(
                         f"cell_value:{row_index}:{column_index}"
                     )
-                cell = worksheet.cell(row_index + 1, column_index + 1)
+                expected_formula = isinstance(
+                    spec.values[row_index][column_index], FormulaCell
+                )
+                if (cell.data_type == "f") is not expected_formula:
+                    mismatches.append(
+                        f"cell_formula_type:{row_index}:{column_index}"
+                    )
                 if cell.hyperlink is not None:
                     mismatches.append(
                         f"cell_hyperlink:{row_index}:{column_index}"

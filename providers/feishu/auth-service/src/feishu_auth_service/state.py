@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import base64
+import hmac
 import secrets
 import threading
 import time
@@ -8,7 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 
-from feishu_auth_service.models import AuthResult
+from feishu_auth_service.models import AuthResult, PlatformIdentityClaim
 
 
 class StateStatus(StrEnum):
@@ -23,6 +25,10 @@ class StateRecord:
     request_ref: str
     created_at: float
     expires_at: float
+    purpose: str = "provider"
+    client_state: str | None = None
+    return_uri: str | None = None
+    code_challenge: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,13 +45,24 @@ class OAuthStateStore:
         self._terminal: dict[str, tuple[StateStatus, float]] = {}
         self._lock = threading.Lock()
 
-    def create(self) -> tuple[str, StateRecord]:
+    def create(
+        self,
+        *,
+        purpose: str = "provider",
+        client_state: str | None = None,
+        return_uri: str | None = None,
+        code_challenge: str | None = None,
+    ) -> tuple[str, StateRecord]:
         now = self._clock()
         state = secrets.token_urlsafe(32)
         record = StateRecord(
             request_ref=f"oauth_{secrets.token_urlsafe(12)}",
             created_at=now,
             expires_at=now + self._ttl_seconds,
+            purpose=purpose,
+            client_state=client_state,
+            return_uri=return_uri,
+            code_challenge=code_challenge,
         )
         digest = _digest(state)
         with self._lock:
@@ -149,3 +166,64 @@ class AuthResultStore:
 
 def _digest(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class StoredIdentityTicket:
+    claim: PlatformIdentityClaim
+    code_challenge: str
+    expires_at: float
+
+
+class IdentityTicketStore:
+    """Short-lived, single-use PKCE-bound identity handoff tickets."""
+
+    def __init__(self, ttl_seconds: int, clock: Callable[[], float] = time.monotonic) -> None:
+        self._ttl_seconds = ttl_seconds
+        self._clock = clock
+        self._tickets: dict[str, StoredIdentityTicket] = {}
+        self._lock = threading.Lock()
+
+    def issue(self, claim: PlatformIdentityClaim, *, code_challenge: str) -> str:
+        ticket = secrets.token_urlsafe(32)
+        now = self._clock()
+        with self._lock:
+            self._cleanup(now)
+            self._tickets[_digest(ticket)] = StoredIdentityTicket(
+                claim=claim,
+                code_challenge=code_challenge,
+                expires_at=now + self._ttl_seconds,
+            )
+        return ticket
+
+    def redeem(self, ticket: str, *, code_verifier: str) -> PlatformIdentityClaim | None:
+        now = self._clock()
+        with self._lock:
+            self._cleanup(now)
+            stored = self._tickets.pop(_digest(ticket), None)
+        if stored is None or stored.expires_at <= now:
+            return None
+        supplied_challenge = _pkce_challenge(code_verifier)
+        if not hmac.compare_digest(supplied_challenge, stored.code_challenge):
+            return None
+        return stored.claim
+
+    def clear(self) -> None:
+        with self._lock:
+            self._tickets.clear()
+
+    def count(self) -> int:
+        now = self._clock()
+        with self._lock:
+            self._cleanup(now)
+            return len(self._tickets)
+
+    def _cleanup(self, now: float) -> None:
+        expired = [key for key, item in self._tickets.items() if item.expires_at <= now]
+        for key in expired:
+            self._tickets.pop(key, None)
+
+
+def _pkce_challenge(verifier: str) -> str:
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")

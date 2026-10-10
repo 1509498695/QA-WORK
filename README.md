@@ -7,6 +7,7 @@
 ## 仓库结构
 
 - `platform/capability-contracts/`：Provider 中立的状态、证据、能力声明和安全错误合同。
+- `platform/control-plane/`：中央控制面四页网页、真实平台身份、唯一团队成员资格和三角色权限状态；通过 Provider 私有一次性票据接入 Feishu OAuth，不持有飞书 Token。
 - `providers/feishu/protocol/`：授权控制面与 MCP Server 共享的 Feishu 私有通信模型。
 - `providers/feishu/auth-service/`：OAuth、部署绑定、Profile 和短期租约签发。
 - `providers/feishu/mcp-server/`：飞书 Docx、Wiki 与 Sheets 读取，以及受管单工作表写入 MCP；不导入授权服务实现。
@@ -14,12 +15,13 @@
 - `plugins/<provider>/`：可独立安装的 Codex Provider Plugin；当前包含 `workspace-feishu`。
 - `docs/adr/` 与各 `CONTEXT.md`：架构决策及按领域拆分的统一语言。
 
-根 `pyproject.toml` 是不发布的 virtual uv workspace；四个 Python 组件各自拥有包名、版本、测试和构建配置，开发态共享根 `uv.lock`。业务 Skill 使用 Codex bundled runtime，不加入 Python workspace。
+根 `pyproject.toml` 是不发布的 virtual uv workspace；五个 Python 组件各自拥有包名、版本、测试和构建配置，开发态共享根 `uv.lock`。业务 Skill 使用 Codex bundled runtime，不加入 Python workspace。
 
 业务 Skill 即使同时编排飞书、SVN 等多种能力，也仍归入自己的 `skills/<skill-name>/`；它只消费各 Provider Plugin 的公开合同，不导入 Provider 私有源码、凭证或运行时。
 
 ## 当前已实现
 
+- `platform/control-plane` 真实状态纵切：共享顶部导航与就绪链，以及 `/start`、`/account`、`/team`、`/platform` 四个主页面；支持一次性 Bootstrap、Feishu OAuth 身份回读、用户显示名称、建队、限时邀请、原子入队/换队、团队角色、平台管理员和显式开发重置。
 - 完整迁入 `skills/qa-case-xlsx-local` 的纯本地业务 Skill；其本地来源、本地 Excel 交付和无网络权限边界保持不变。
 - `skills/qa-case-xlsx-unified` 首个飞书读写纵切：保留统一来源 v2 证据、复用已发布用例生成门禁，并把 `final_cases.json` 确定性转换为 Workspace Feishu A:J 单 Sheet 规范；真实交付仍以 Provider 确认和同对象回读为准。
 - Provider 专用飞书企业自建应用、DPAPI 部署绑定和零输入日常启动。
@@ -45,6 +47,14 @@
 - 已登记工作表的同任务修订：链接唯一解析、调用方 `base_spec + next_spec`、写前双重基线验证、一次有界差异确认、退役区清理、追加式版本历史及写后双重验证；`no_change` 不确认、不写入、不增版本。
 
 业务内容只在 Provider 与飞书 OpenAPI 之间流动。授权控制面只管理应用凭证、长期授权和短期租约，不接收或代理 Docx 正文或 Sheets 单元格内容。
+
+## 运行中央控制面
+
+```powershell
+.\scripts\run-control-plane-ui.ps1 -OpenBrowser
+```
+
+默认地址为 <http://127.0.0.1:3100/start>。首次启动后直接点击页面中的“使用飞书账号初始化并登录”；十五分钟有效的 Bootstrap 凭证只保存在当前服务进程内存，无需复制链接。必须同时保持 `scripts\run-local-auth.ps1` 的 OAuth 服务运行。平台状态保存到 `%LOCALAPPDATA%\WorkspaceCapabilities\control-plane\state-v1.sqlite3`，飞书凭证仍只存在于 Feishu Provider 自己的 DPAPI 绑定和 Profile 中。
 
 ## 飞书后台准备
 
@@ -184,11 +194,11 @@ uv run --package workspace-feishu-auth-service --locked feishu-auth preflight
 
 ## 尚未实现
 
-- 正式中央控制面的稳定 HTTPS、mTLS 客户端身份、客户端 Profile 浏览器绑定、持久审计、撤销和多人隔离。
+- 正式中央控制面的稳定 HTTPS、反向代理可信边界、客户端身份、近期重认证策略、审计查询/导出和多主机部署。
 - Wiki 中 Docx/Sheets 以外对象的内容读取、Docx 中嵌入 Sheets 等复合 Block 解析、Docx 写入，以及任意已有非空 Sheet 覆盖。
 - Sheets 自动换行、局部边框、图表、批注和嵌入媒体语义。
 - 将正文、图片、附件和表格快照固化到调用方拥有的任务隔离暂存区；当前 v0.4 只返回内存快照，不宣称已经形成持久任务包。
-- 正式多人模式下的用户/客户端/任务身份绑定、中央审计，以及独立的放弃或远端清理流程。
+- Provider 执行客户端与当前平台用户/团队的任务身份绑定，以及独立的放弃或远端清理流程。
 - 正式 Marketplace 发布流水线、插件自动升级和跨机器安装验证。
 - SVN 等新增 Provider、统一入口的本地/飞书混合来源、跨任务交付基线，以及经过独立设计的共享业务包。
 

@@ -8,8 +8,3 @@ dependencies:
     - type: "mcp"
       value: "workspace_feishu"
       description: "Workspace Feishu public read and managed Sheet delivery tools"
-dependencies:
-  tools:
-    - type: "mcp"
-      value: "workspace_feishu"
-      description: "Workspace Feishu public read and managed Sheet delivery tools"

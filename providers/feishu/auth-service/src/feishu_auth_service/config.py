@@ -42,6 +42,7 @@ class Settings:
     configuration_source: str = "direct"
     local_client_ref: str | None = None
     local_client_secret: str | None = None
+    platform_callback_uri: str = "http://127.0.0.1:3100/auth/feishu/callback"
 
     def __post_init__(self) -> None:
         if not self.app_id.strip():
@@ -66,6 +67,17 @@ class Settings:
             raise ConfigurationError("FEISHU_AUTH_PORT must be between 1 and 65535")
         if parsed.port != self.port:
             raise ConfigurationError("FEISHU_REDIRECT_URI port must match FEISHU_AUTH_PORT")
+        platform_callback = urlsplit(self.platform_callback_uri)
+        if (
+            platform_callback.scheme != "http"
+            or platform_callback.hostname not in {"localhost", "127.0.0.1"}
+            or platform_callback.path != "/auth/feishu/callback"
+            or platform_callback.query
+            or platform_callback.fragment
+        ):
+            raise ConfigurationError(
+                "The platform identity callback must be an exact HTTP localhost callback"
+            )
         if not self.scopes:
             raise ConfigurationError("At least one OAuth scope is required")
         if (self.local_client_ref is None) != (self.local_client_secret is None):
@@ -113,6 +125,10 @@ class Settings:
             result_ttl_seconds=_read_int("FEISHU_RESULT_TTL_SECONDS", 600),
             request_timeout_seconds=_read_float("FEISHU_REQUEST_TIMEOUT_SECONDS", 10.0),
             configuration_source="environment",
+            platform_callback_uri=os.getenv(
+                "QA_SKILL_HUB_CONTROL_PLANE_CALLBACK_URI",
+                "http://127.0.0.1:3100/auth/feishu/callback",
+            ),
         )
 
     @classmethod
@@ -128,9 +144,11 @@ class Settings:
 
     def safe_status(self) -> dict[str, object]:
         return {
+            "app_id": self.app_id,
             "app_id_configured": bool(self.app_id),
             "app_secret_configured": bool(self.app_secret),
             "allowed_tenant_configured": self.allowed_tenant_key is not None,
+            "allowed_tenant_key": self.allowed_tenant_key,
             "redirect_uri": self.redirect_uri,
             "authorization_url": self.authorization_url,
             "scopes": list(self.scopes),
@@ -140,6 +158,8 @@ class Settings:
             "local_execution_client_configured": self.local_client_ref is not None,
             "development_only": True,
             "configuration_source": self.configuration_source,
+            "platform_identity_handoff_configured": True,
+            "platform_callback_uri": self.platform_callback_uri,
         }
 
     @property

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
@@ -127,6 +128,92 @@ def _start_state(client: TestClient) -> str:
     response = client.get("/oauth/start", follow_redirects=False)
     assert response.status_code == 303
     return parse_qs(urlsplit(response.headers["location"]).query)["state"][0]
+
+
+def _pkce_challenge(verifier: str) -> str:
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
+def test_platform_identity_handoff_is_single_use_pkce_bound_and_token_free(
+    tmp_path: Path,
+) -> None:
+    verifier = "verifier_" + "a" * 56
+    client_state = "state_" + "b" * 40
+    settings = Settings(
+        app_id="cli_test",
+        app_secret="app-secret-must-never-leak",
+        allowed_tenant_key="tenant-a",
+    )
+    app = create_app(settings, FakeOAuthClient(), _vault(tmp_path))
+
+    with TestClient(app) as client:
+        start = client.get(
+            "/platform/login/start",
+            params={
+                "state": client_state,
+                "code_challenge": _pkce_challenge(verifier),
+                "return_to": settings.platform_callback_uri,
+            },
+            follow_redirects=False,
+        )
+        oauth_state = parse_qs(urlsplit(start.headers["location"]).query)["state"][0]
+        callback = client.get(
+            "/callback",
+            params={"state": oauth_state, "code": "one-time-code"},
+            follow_redirects=False,
+        )
+        assert callback.status_code == 303
+        callback_query = parse_qs(urlsplit(callback.headers["location"]).query)
+        assert callback_query["state"] == [client_state]
+        ticket = callback_query["ticket"][0]
+
+        redeemed = client.post(
+            "/internal/v1/platform-identities/redeem",
+            json={"ticket": ticket, "code_verifier": verifier},
+        )
+        replay = client.post(
+            "/internal/v1/platform-identities/redeem",
+            json={"ticket": ticket, "code_verifier": verifier},
+        )
+
+        assert redeemed.status_code == 200
+        assert redeemed.json()["identity"] == {
+            "app_id": "cli_test",
+            "tenant_key": "tenant-a",
+            "open_id": "ou_1234567890abcdef",
+            "union_id": "on_123",
+            "name": "测试用户",
+            "avatar_url": None,
+            "profile_ref": redeemed.json()["identity"]["profile_ref"],
+        }
+        assert replay.status_code == 400
+        combined = redeemed.text + callback.headers["location"]
+        assert "access-token-must-never-leak" not in combined
+        assert "refresh-token-must-never-leak" not in combined
+        assert "app-secret-must-never-leak" not in combined
+
+
+def test_platform_identity_handoff_rejects_unregistered_callback(tmp_path: Path) -> None:
+    verifier = "verifier_" + "a" * 56
+    app = create_app(
+        Settings(app_id="cli_test", app_secret="secret", allowed_tenant_key="tenant-a"),
+        FakeOAuthClient(),
+        _vault(tmp_path),
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/platform/login/start",
+            params={
+                "state": "state_" + "b" * 40,
+                "code_challenge": _pkce_challenge(verifier),
+                "return_to": "http://127.0.0.1:3999/auth/feishu/callback",
+            },
+        )
+
+    assert response.status_code == 400
+    assert "platform_callback_not_allowed" in response.text
 
 
 def test_verified_oauth_callback_is_single_use_and_redacted(tmp_path: Path) -> None:

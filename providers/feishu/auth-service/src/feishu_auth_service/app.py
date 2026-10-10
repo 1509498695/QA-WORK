@@ -4,8 +4,10 @@ import hashlib
 import hmac
 import html
 import logging
+import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from urllib.parse import urlencode
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -24,9 +26,20 @@ from feishu_auth_service.leases import (
     WIKI_NODE_READ_SCOPES,
     LocalLeaseBroker,
 )
-from feishu_auth_service.models import AuthResult, UserIdentity
+from feishu_auth_service.models import (
+    AuthResult,
+    PlatformIdentityClaim,
+    PlatformIdentityRedeemRequest,
+    UserIdentity,
+)
 from feishu_auth_service.profiles import LocalProfileVault, ProfileError, ProfileVault
-from feishu_auth_service.state import AuthResultStore, OAuthStateStore, StateStatus
+from feishu_auth_service.state import (
+    AuthResultStore,
+    IdentityTicketStore,
+    OAuthStateStore,
+    StateRecord,
+    StateStatus,
+)
 from feishu_protocol import LeaseRequest
 
 LOGGER = logging.getLogger("feishu_auth_service")
@@ -40,6 +53,7 @@ def create_app(
 ) -> FastAPI:
     state_store = OAuthStateStore(settings.state_ttl_seconds)
     result_store = AuthResultStore(settings.result_ttl_seconds)
+    identity_ticket_store = IdentityTicketStore(settings.result_ttl_seconds)
     client = oauth_client or FeishuOAuthClient(settings)
     vault = profile_vault or LocalProfileVault.default()
     broker = lease_broker or LocalLeaseBroker(
@@ -53,6 +67,7 @@ def create_app(
         yield
         state_store.clear()
         result_store.clear()
+        identity_ticket_store.clear()
         broker.clear()
         await client.aclose()
 
@@ -67,6 +82,7 @@ def create_app(
     app.state.settings = settings
     app.state.state_store = state_store
     app.state.result_store = result_store
+    app.state.identity_ticket_store = identity_ticket_store
     app.state.profile_vault = vault
     app.state.lease_broker = broker
 
@@ -90,6 +106,7 @@ def create_app(
             "mode": "local_provider_v0",
             "persistent_access_tokens": False,
             "encrypted_refresh_token_profiles": True,
+            "platform_identity_handoff": True,
         }
 
     @app.get("/status")
@@ -99,6 +116,7 @@ def create_app(
             "configuration": settings.safe_status(),
             "pending_oauth_states": state_store.pending_count(),
             "visible_results": result_store.count(),
+            "pending_identity_tickets": identity_ticket_store.count(),
             "authorized_profiles": len(vault.summaries()),
         }
 
@@ -126,6 +144,35 @@ def create_app(
         state, record = state_store.create()
         LOGGER.info("oauth_start request_ref=%s", record.request_ref)
         return RedirectResponse(client.authorization_url(state), status_code=303)
+
+    @app.get("/platform/login/start")
+    async def platform_login_start(
+        state: str,
+        code_challenge: str,
+        return_to: str,
+    ) -> Response:
+        if not _valid_handoff_value(state, minimum=32, maximum=256):
+            return _error_page("平台登录请求无效", "platform_state_invalid", status_code=400)
+        if not _valid_handoff_value(code_challenge, minimum=43, maximum=43):
+            return _error_page(
+                "平台登录请求无效",
+                "platform_code_challenge_invalid",
+                status_code=400,
+            )
+        if not hmac.compare_digest(return_to, settings.platform_callback_uri):
+            return _error_page(
+                "平台登录回调未获准入",
+                "platform_callback_not_allowed",
+                status_code=400,
+            )
+        oauth_state, record = state_store.create(
+            purpose="platform_identity",
+            client_state=state,
+            return_uri=return_to,
+            code_challenge=code_challenge,
+        )
+        LOGGER.info("platform_oauth_start request_ref=%s", record.request_ref)
+        return RedirectResponse(client.authorization_url(oauth_state), status_code=303)
 
     @app.get("/callback")
     async def oauth_callback(
@@ -269,6 +316,35 @@ def create_app(
                 )
         del grant
 
+        if consumption.record.purpose == "platform_identity":
+            handoff_error = _platform_handoff_record_error(consumption.record, result)
+            if handoff_error is not None:
+                return handoff_error
+            assert result.profile_ref is not None
+            assert consumption.record.code_challenge is not None
+            assert consumption.record.client_state is not None
+            assert consumption.record.return_uri is not None
+            ticket = identity_ticket_store.issue(
+                PlatformIdentityClaim(
+                    app_id=settings.app_id,
+                    tenant_key=identity.tenant_key,
+                    open_id=identity.open_id,
+                    union_id=identity.union_id,
+                    name=identity.name,
+                    avatar_url=identity.avatar_url,
+                    profile_ref=result.profile_ref,
+                ),
+                code_challenge=consumption.record.code_challenge,
+            )
+            query = urlencode(
+                {"state": consumption.record.client_state, "ticket": ticket}
+            )
+            LOGGER.info("platform_identity_ticket_issued request_ref=%s", request_ref)
+            return RedirectResponse(
+                f"{consumption.record.return_uri}?{query}",
+                status_code=303,
+            )
+
         result_ref = result_store.put(result)
         LOGGER.info("oauth_result request_ref=%s status=%s", request_ref, result.status)
         return RedirectResponse(f"/oauth/result/{result_ref}", status_code=303)
@@ -324,6 +400,35 @@ def create_app(
             )
         return JSONResponse(lease.delivery().model_dump(mode="json"))
 
+    @app.post("/internal/v1/platform-identities/redeem")
+    async def redeem_platform_identity(body: PlatformIdentityRedeemRequest) -> Response:
+        claim = identity_ticket_store.redeem(
+            body.ticket,
+            code_verifier=body.code_verifier,
+        )
+        if claim is None:
+            return JSONResponse(
+                {
+                    "status": "identity_ticket_invalid",
+                    "message": "The platform identity ticket is invalid, expired, replayed, or not bound to this login.",
+                },
+                status_code=400,
+            )
+        return JSONResponse(
+            {
+                "status": "verified",
+                "identity": {
+                    "app_id": claim.app_id,
+                    "tenant_key": claim.tenant_key,
+                    "open_id": claim.open_id,
+                    "union_id": claim.union_id,
+                    "name": claim.name,
+                    "avatar_url": claim.avatar_url,
+                    "profile_ref": claim.profile_ref,
+                },
+            }
+        )
+
     @app.exception_handler(Exception)
     async def unhandled_error(_: Request, exc: Exception) -> JSONResponse:
         LOGGER.error("unhandled_error type=%s", type(exc).__name__)
@@ -353,6 +458,28 @@ def _authorize_local_client(request: Request, settings: Settings) -> JSONRespons
         settings.local_client_secret,
     ):
         return _client_unauthorized()
+    return None
+
+
+def _valid_handoff_value(value: str, *, minimum: int, maximum: int) -> bool:
+    return minimum <= len(value) <= maximum and re.fullmatch(r"[A-Za-z0-9_-]+", value) is not None
+
+
+def _platform_handoff_record_error(
+    record: StateRecord,
+    result: AuthResult,
+) -> HTMLResponse | None:
+    if (
+        result.status != "verified"
+        or record.client_state is None
+        or record.return_uri is None
+        or record.code_challenge is None
+    ):
+        return _error_page(
+            "平台身份无法建立",
+            "platform_identity_not_verified",
+            status_code=403,
+        )
     return None
 
 

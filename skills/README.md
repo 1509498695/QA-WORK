@@ -16,5 +16,6 @@
 ## 当前成员
 
 - [`qa-case-xlsx-local`](./qa-case-xlsx-local/)：只读取本地策划案并生成本地 Excel 测试用例；不读取或写入飞书，不依赖 QAWORK、Jira、Code Ask 或网络。
+- [`qa-case-xlsx-unified`](./qa-case-xlsx-unified/)：读取用户明确提供的飞书策划来源，生成可追溯 A:J 测试用例，并受控交付到用户指定的飞书工作簿。
 
-未来需要飞书读写、SVN 读取或多 Provider 编排的生成用例、生成文档等 Skill，仍各自放在 `skills/<skill-name>/`。能力组合不改变业务 Skill 的目录归属。
+未来需要 SVN 读取或多 Provider 编排的生成用例、生成文档等 Skill，仍各自放在 `skills/<skill-name>/`。能力组合不改变业务 Skill 的目录归属。
